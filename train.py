@@ -3,7 +3,7 @@ import numpy as np
 
 
 class TrainUtil:
-    def __init__(self, model, train_loader, test_loader, optimizer, verbosity=1, max_rul=150):
+    def __init__(self, model, train_loader, test_loader, optimizer, verbosity=1, max_rul=150, handcrafted=False):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model = model.to(self.device)
         self.optimizer = optimizer
@@ -13,6 +13,7 @@ class TrainUtil:
         self.history = {}
         self.criterion = torch.nn.MSELoss()
         self.max_rul = max_rul
+        self.handcrafted = handcrafted
         print(f"Device: {self.device}")
 
     def train_one_epoch(self, train_loader=None):
@@ -23,11 +24,16 @@ class TrainUtil:
         loss_acc = 0
         factor = self.max_rul
         for batch_index, data in enumerate(train_loader):
-            inputs, labels = data
-            inputs, labels = inputs.to(self.device), labels.to(self.device)
-
             self.optimizer.zero_grad()
-            predictions = self.model(inputs)
+            if self.handcrafted:
+                x, hc, labels = data
+                x, hc, labels = x.to(self.device), hc.to(self.device), labels.to(self.device)
+                predictions = self.model(x, hc)
+            else:
+                x, labels = data
+                x, labels = x.to(self.device), labels.to(self.device)
+                predictions = self.model(x)
+
             loss = self.criterion(factor*predictions, factor*labels)
             loss_acc += loss.item()*len(labels)
             loss.backward()
@@ -47,13 +53,18 @@ class TrainUtil:
         factor = self.max_rul
         for batch_index, data in enumerate(test_loader):
             with torch.no_grad():
-                inputs, labels = data
-                inputs, labels = inputs.to(self.device), labels.to(self.device)
+                if self.handcrafted:
+                    x, hc, labels = data
+                    x, hc, labels = x.to(self.device), hc.to(self.device), labels.to(self.device)
+                    predictions = self.model(x, hc)
+                else:
+                    x, labels = data
+                    x, labels = x.to(self.device), labels.to(self.device)
+                    predictions = self.model(x)
 
-                predictions = self.model(inputs)
                 loss = self.criterion(factor*predictions, factor*labels)
                 score = self.score(factor*predictions, factor*labels)
-                loss_acc += loss*len(labels)
+                loss_acc += loss.item()*len(labels)
                 score_acc += score.item()
 
         val_loss = (loss_acc/len(test_loader.dataset))**0.5
@@ -89,5 +100,3 @@ class TrainUtil:
             else:
                 score += np.exp((y_true[i] - y_hat[i]) / 13.0) - 1
         return score
-
-
