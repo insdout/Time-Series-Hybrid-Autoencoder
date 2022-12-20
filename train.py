@@ -14,7 +14,8 @@ class TrainUtil:
         self.criterion = torch.nn.MSELoss()
         self.max_rul = max_rul
         self.handcrafted = handcrafted
-        print(f"Device: {self.device}")
+        if self.verbosity:
+            print(f"Device: {self.device}")
 
     def train_one_epoch(self, train_loader=None):
         if not train_loader:
@@ -34,12 +35,12 @@ class TrainUtil:
                 x, labels = x.to(self.device), labels.to(self.device)
                 predictions = self.model(x)
 
-            loss = self.criterion(factor*predictions, factor*labels)
-            loss_acc += loss.item()*len(labels)
+            loss = self.criterion(factor * predictions, factor * labels)
+            loss_acc += loss.item() * len(labels)
             loss.backward()
             self.optimizer.step()
 
-        train_loss = (loss_acc/len(train_loader.dataset))**0.5
+        train_loss = (loss_acc / len(train_loader.dataset)) ** 0.5
         if self.verbosity:
             print(f"Train average loss: {train_loss}")
         return train_loss
@@ -62,12 +63,12 @@ class TrainUtil:
                     x, labels = x.to(self.device), labels.to(self.device)
                     predictions = self.model(x)
 
-                loss = self.criterion(factor*predictions, factor*labels)
-                score = self.score(factor*predictions, factor*labels)
-                loss_acc += loss.item()*len(labels)
+                loss = self.criterion(factor * predictions, factor * labels)
+                score = self.score(factor * predictions, factor * labels)
+                loss_acc += loss.item() * len(labels)
                 score_acc += score.item()
 
-        val_loss = (loss_acc/len(test_loader.dataset))**0.5
+        val_loss = (loss_acc / len(test_loader.dataset)) ** 0.5
         if self.verbosity:
             print(f"Validation average loss: {val_loss} average score: {score_acc}")
         return val_loss, score_acc
@@ -84,10 +85,10 @@ class TrainUtil:
             history["train_loss"].append(train_loss)
             history["val_loss"].append(val_loss)
             history["val_score"].append(val_score)
-            print(f"Epoch: {epoch_num+1} train loss: {train_loss :.3f} "
-                  f"val loss: {val_loss :.3f} score: {val_score :.3f}")
+            if self.verbosity:
+                print(f"Epoch: {epoch_num + 1} train loss: {train_loss :.3f} "
+                      f"val loss: {val_loss :.3f} score: {val_score :.3f}")
         return history
-
 
     @staticmethod
     def score(y_true, y_hat):
