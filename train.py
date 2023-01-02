@@ -4,6 +4,16 @@ import numpy as np
 
 class TrainUtil:
     def __init__(self, model, train_loader, test_loader, optimizer, verbosity=1, max_rul=150, handcrafted=False):
+        """
+        Trainer utility class, which performs model training and validation.
+        :param model: object, model object
+        :param train_loader: object, train_loader object
+        :param test_loader: object, test_loader object
+        :param optimizer: object, optimizer object
+        :param verbosity: int, controls the verbosity of the console output
+        :param max_rul: int, maximal RUL, after which RUL becomes constant
+        :param handcrafted: bool, flag if set to True, handcrafted features will be extracted and passed to input
+        """
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model = model.to(self.device)
         self.optimizer = optimizer
@@ -18,6 +28,11 @@ class TrainUtil:
             print(f"Device: {self.device}")
 
     def train_one_epoch(self, train_loader=None):
+        """
+        Performs training and validation for one epoch
+        :param train_loader: object, train_loader object (optional)
+        :return: float, average loss on epoch
+        """
         if not train_loader:
             train_loader = self.train_loader
 
@@ -41,11 +56,16 @@ class TrainUtil:
             self.optimizer.step()
 
         train_loss = (loss_acc / len(train_loader.dataset)) ** 0.5
-        if self.verbosity:
+        if self.verbosity and self.verbosity > 2:
             print(f"Train average loss: {train_loss}")
         return train_loss
 
     def validate(self, test_loader=None):
+        """
+        Performs validation on test dateset
+        :param test_loader: object, test_loader object (optional)
+        :return: tuple of float, average validation loss and score
+        """
         if not test_loader:
             test_loader = self.test_loader
         self.model.eval()
@@ -69,11 +89,18 @@ class TrainUtil:
                 score_acc += score.item()
 
         val_loss = (loss_acc / len(test_loader.dataset)) ** 0.5
-        if self.verbosity:
+        if self.verbosity and self.verbosity > 2:
             print(f"Validation average loss: {val_loss} average score: {score_acc}")
         return val_loss, score_acc
 
     def train(self, epoch, train_loader=None, test_loader=None):
+        """
+        Trains the model on given number of epochs
+        :param epoch: int, number of epochs
+        :param train_loader: object, train_loader object (optional)
+        :param test_loader: object, test_loader object (optional)
+        :return: dict, history of train, validation loss and scores
+        """
         if not train_loader:
             train_loader = self.train_loader
         if not test_loader:
@@ -92,6 +119,12 @@ class TrainUtil:
 
     @staticmethod
     def score(y_true, y_hat):
+        """
+        Calculates the score given true and predicted y
+        :param y_true: tensor, true y
+        :param y_hat: tensor, predicted y
+        :return: float, average score
+        """
         score = 0
         y_true = y_true.cpu()
         y_hat = y_hat.cpu()

@@ -13,11 +13,24 @@ class CMAPSSSlidingWin(Dataset):
                  window_size=30,
                  standardize=False,
                  handcrafted=False,
-                 drop_features=True
+                 drop_features=[5, 9, 10, 14, 20, 22, 23]
                  ):
+        """
+        Dateset class, performs data preprocessing: normalization, sliding window slicing,
+        handcrafted feature extraction, redundant features dropping
+
+        :param data_path: string, path to data file
+        :param mode: string, "train" or "test"
+        :param rul_path: string, path to the RUL data file
+        :param max_rul: int, maximal RUL, value at which RUL becomes constant
+        :param window_size: int, width of sliding window
+        :param standardize: bool, if set data will be standardized
+        :param handcrafted: bool, if set handcrafted features will be extracted
+        :param drop_features: list, list of feature indices to be dropped
+        """
         self.data = np.loadtxt(fname=data_path, dtype=np.float32)
-        if drop_features:
-            self.data = np.delete(self.data, [5, 9, 10, 14, 20, 22, 23], axis=1)
+        if len(drop_features) > 0:
+            self.data = np.delete(self.data, drop_features, axis=1)
         if rul_path:
             self.data_rul = np.loadtxt(fname=rul_path, dtype=np.float32)
         self.mode = mode
@@ -26,6 +39,7 @@ class CMAPSSSlidingWin(Dataset):
         self.num_runs = int(self.data[-1, 0])
         self.standardize = standardize
         self.handcrafted = handcrafted
+        self.run_id = []
 
         if self.handcrafted:
             if mode == 'train':
@@ -39,6 +53,12 @@ class CMAPSSSlidingWin(Dataset):
                 self.x,  self.y = self.prepare_test()
 
     def prepare_train(self):
+        """
+        Normalizes data, applies sliding window slicing,
+        extracts handcrafted features if self.handcrafted is True
+        Handcrafted features are normalized.
+        :return: tuple of numpy arrays x, hc, y
+        """
         data = self.norm_data()
         x = []
         hc = []
@@ -52,8 +72,10 @@ class CMAPSSSlidingWin(Dataset):
                 rul = len(temp_data) - i - self.window_size
                 x.append(frame)
                 y.append(min(rul, self.max_rul))
+                self.run_id.append(run)
         x = np.array(x)
         y = np.array(y) / self.max_rul
+        self.run_id = np.array(self.run_id)
 
         if self.handcrafted:
             for i in range(len(x)):
@@ -65,12 +87,18 @@ class CMAPSSSlidingWin(Dataset):
             eps = 1e-10
             hc = (hc - mu) / (sigma + eps)
             hc = np.array(hc)
-
             return x, hc, y
         else:
             return x, y
 
     def prepare_test(self):
+        """
+        Normalizes data, applies sliding window slicing,
+        extracts handcrafted features if self.handcrafted is True
+        Handcrafted features are normalized.
+        :return: tuple of arrays x, hc, y
+        :return: tuple of numpy arrays
+        """
         data = self.norm_data()
         x = []
         hc = []
@@ -91,14 +119,16 @@ class CMAPSSSlidingWin(Dataset):
                 data_interpolated = np.transpose(data_interpolated).tolist()
                 x.append(data_interpolated)
                 y.append(min(rul, self.max_rul))
-
+                self.run_id.append(run)
             else:
                 frame = temp_data[-self.window_size:, :]
                 rul = self.data_rul[run - 1]
                 x.append(frame)
                 y.append(min(rul, self.max_rul))
+                self.run_id.append(run)
         x = np.array(x)
         y = np.array(y) / self.max_rul
+        self.run_id = np.array(self.run_id)
 
         if self.handcrafted:
             for i in range(len(x)):
@@ -116,6 +146,12 @@ class CMAPSSSlidingWin(Dataset):
 
     @staticmethod
     def fea_extract(data):
+        """
+        Extracts mean and regression coefficient
+        for feature
+        :param data: list of size (Window_Size x 1)
+        :return: list of size (2 x 1)
+        """
         fea = []
         x = np.array(range(data.shape[0]))
         for i in range(data.shape[1]):
@@ -124,6 +160,11 @@ class CMAPSSSlidingWin(Dataset):
         return fea
 
     def norm_data(self):
+        """
+        Performs standardization or normalization of
+        data, depending on the flag self.standardize
+        :return: numpy array
+        """
         eps = 1e-12
         columns_to_keep = self.data[:, [0, 1]]
         columns_to_transform = self.data[:, 2:]
@@ -141,7 +182,27 @@ class CMAPSSSlidingWin(Dataset):
         transformed_data = np.concatenate((columns_to_keep.astype(int), columns_to_transform), axis=1)
         return transformed_data
 
+    def get_full_run(self, run_id):
+        """
+        Returns X, y for specific run_id
+        run_id starts with 1
+        :param run_id: int [1, Number of runs]
+        :return: tuple of numpy arrays
+        """
+        mask = np.asarray(self.run_id == run_id).nonzero()
+        x_tensor = torch.from_numpy(self.x[mask]).to(torch.float32)
+        y_tensor = torch.from_numpy(self.y[mask]).to(torch.float32)
+        if self.handcrafted:
+            hc_tensor = torch.from_numpy(self.hc[mask]).to(torch.float32)
+            return x_tensor, hc_tensor, y_tensor
+        return x_tensor, y_tensor
+
     def __getitem__(self, index):
+        """
+        Return
+        :param index:
+        :return: tuple of numpy arrays
+        """
         x_tensor = torch.from_numpy(self.x[index]).to(torch.float32)
         y_tensor = torch.Tensor([self.y[index]]).to(torch.float32)
         if self.handcrafted:
@@ -150,4 +211,40 @@ class CMAPSSSlidingWin(Dataset):
         return x_tensor, y_tensor
 
     def __len__(self):
+        """
+        Calculates the length of dataset
+        :return: int
+        """
         return len(self.y)
+
+
+if __name__ == "__main__":
+    dataset = CMAPSSSlidingWin(
+                 "CMAPSSData/train_FD001.txt",
+                 mode='train',
+                 rul_path=None,
+                 max_rul=150,
+                 window_size=30,
+                 standardize=False,
+                 handcrafted=False,
+                 drop_features=[5, 9, 10, 14, 20, 22, 23]
+                 )
+    print("run_id shape:", len(dataset.run_id))
+    print("x shape:", dataset.x.shape)
+    x, y = dataset.get_full_run(2)
+    print("x shape:", tuple(x.shape), "y shape:", tuple(y.shape))
+
+    dataset = CMAPSSSlidingWin(
+        "CMAPSSData/train_FD001.txt",
+        mode='train',
+        rul_path=None,
+        max_rul=150,
+        window_size=30,
+        standardize=False,
+        handcrafted=True,
+        drop_features=[5, 9, 10, 14, 20, 22, 23]
+    )
+    print("run_id shape:", len(dataset.run_id))
+    print("x shape:", dataset.x.shape)
+    x, hc, y = dataset.get_full_run(2)
+    print("x shape:", tuple(x.shape), "hc shape:", tuple(hc.shape), "y shape:", tuple(y.shape))
