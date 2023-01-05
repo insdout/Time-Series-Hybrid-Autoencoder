@@ -18,7 +18,6 @@ class CMAPSSSlidingWin(Dataset):
         """
         Dateset class, performs data preprocessing: normalization, sliding window slicing,
         handcrafted feature extraction, redundant features dropping
-
         :param data_path: string, path to data file
         :param mode: string, "train" or "test"
         :param rul_path: string, path to the RUL data file
@@ -40,6 +39,13 @@ class CMAPSSSlidingWin(Dataset):
         self.standardize = standardize
         self.handcrafted = handcrafted
         self.run_id = []
+        self.max_run_id = 0
+
+        # Sliding window slicing for test data:
+        self.x_sw = []
+        self.y_sw = []
+        if self.handcrafted:
+            self.hc_sw =[]
 
         if self.handcrafted:
             if mode == 'train':
@@ -76,6 +82,7 @@ class CMAPSSSlidingWin(Dataset):
         x = np.array(x)
         y = np.array(y) / self.max_rul
         self.run_id = np.array(self.run_id)
+        self.max_run_id = max(self.run_id)
 
         if self.handcrafted:
             for i in range(len(x)):
@@ -101,8 +108,11 @@ class CMAPSSSlidingWin(Dataset):
         """
         data = self.norm_data()
         x = []
+        x_sw = []
         hc = []
+        hc_sw = []
         y = []
+        y_sw = []
         for run in range(1, self.num_runs + 1):
             mask = np.asarray(data[:, 0] == run).nonzero()[0]
             temp_data = data[mask, 2:]
@@ -119,16 +129,31 @@ class CMAPSSSlidingWin(Dataset):
                 data_interpolated = np.transpose(data_interpolated).tolist()
                 x.append(data_interpolated)
                 y.append(min(rul, self.max_rul))
+
+                # Sliding window slicing for test:
+                x_sw.append(data_interpolated)
+                y_sw.append(min(rul, self.max_rul))
                 self.run_id.append(run)
             else:
                 frame = temp_data[-self.window_size:, :]
                 rul = self.data_rul[run - 1]
                 x.append(frame)
                 y.append(min(rul, self.max_rul))
-                self.run_id.append(run)
+
+                # Sliding window slicing for test:
+                for i in range(len(temp_data) - self.window_size + 1):
+                    frame = temp_data[i:i + self.window_size, :]
+                    rul = self.data_rul[run - 1] + len(temp_data) - i - self.window_size
+                    # print("frame", len(frame), len(frame[0]))
+                    x_sw.append(frame)
+                    y_sw.append(min(rul, self.max_rul))
+                    self.run_id.append(run)
         x = np.array(x)
+        x_sw = np.array(x_sw)
         y = np.array(y) / self.max_rul
+        y_sw = np.array(y_sw) / self.max_rul
         self.run_id = np.array(self.run_id)
+        self.max_run_id = max(self.run_id)
 
         if self.handcrafted:
             for i in range(len(x)):
@@ -140,8 +165,22 @@ class CMAPSSSlidingWin(Dataset):
             hc = (hc - mu) / (sigma + eps)
             hc = np.array(hc)
 
+            for i in range(len(x_sw)):
+                one_sample = x_sw[i]
+                hc_sw.append(self.fea_extract(one_sample))
+            mu = np.mean(hc_sw, axis=0)
+            sigma = np.std(hc_sw, axis=0)
+            eps = 1e-10
+            hc_sw = (hc_sw - mu) / (sigma + eps)
+            hc_sw = np.array(hc_sw)
+
+            self.x_sw = x_sw
+            self.y_sw = y_sw
+            self.hc_sw = hc_sw
             return x, hc, y
         else:
+            self.x_sw = x_sw
+            self.y_sw = y_sw
             return x, y
 
     @staticmethod
@@ -190,16 +229,33 @@ class CMAPSSSlidingWin(Dataset):
         :return: tuple of numpy arrays
         """
         mask = np.asarray(self.run_id == run_id).nonzero()
-        x_tensor = torch.from_numpy(self.x[mask]).to(torch.float32)
-        y_tensor = torch.from_numpy(self.y[mask]).to(torch.float32)
+        if self.mode == 'train':
+            x_tensor = torch.from_numpy(self.x[mask]).to(torch.float32)
+            y_tensor = torch.from_numpy(self.y[mask]).to(torch.float32)
+        else:
+            x_tensor = torch.from_numpy(self.x_sw[mask]).to(torch.float32)
+            y_tensor = torch.from_numpy(self.y_sw[mask]).to(torch.float32)
         if self.handcrafted:
-            hc_tensor = torch.from_numpy(self.hc[mask]).to(torch.float32)
+            if self.mode == 'train':
+                hc_tensor = torch.from_numpy(self.hc[mask]).to(torch.float32)
+            else:
+                hc_tensor = torch.from_numpy(self.hc_sw[mask]).to(torch.float32)
             return x_tensor, hc_tensor, y_tensor
         return x_tensor, y_tensor
 
+    def get_max_run_id(self):
+        """
+        Returns max run id if it exists, else return None
+        :return: int or None
+        """
+        if self.max_run_id:
+            return self.max_run_id
+        else:
+            return None
+
     def __getitem__(self, index):
         """
-        Return
+        Return feature vector at specified index
         :param index:
         :return: tuple of numpy arrays
         """
@@ -233,6 +289,7 @@ if __name__ == "__main__":
     print("x shape:", dataset.x.shape)
     x, y = dataset.get_full_run(2)
     print("x shape:", tuple(x.shape), "y shape:", tuple(y.shape))
+    print("Max run id:", dataset.get_max_run_id())
 
     dataset = CMAPSSSlidingWin(
         "CMAPSSData/train_FD001.txt",
@@ -248,3 +305,4 @@ if __name__ == "__main__":
     print("x shape:", dataset.x.shape)
     x, hc, y = dataset.get_full_run(2)
     print("x shape:", tuple(x.shape), "hc shape:", tuple(hc.shape), "y shape:", tuple(y.shape))
+    print("Max run id:", dataset.get_max_run_id())

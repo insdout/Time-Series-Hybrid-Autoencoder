@@ -112,7 +112,7 @@ class TrainUtil:
             history["train_loss"].append(train_loss)
             history["val_loss"].append(val_loss)
             history["val_score"].append(val_score)
-            if self.verbosity:
+            if self.verbosity and self.verbosity > 1:
                 print(f"Epoch: {epoch_num + 1} train loss: {train_loss :.3f} "
                       f"val loss: {val_loss :.3f} score: {val_score :.3f}")
         return history
