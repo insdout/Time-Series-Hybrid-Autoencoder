@@ -1,0 +1,42 @@
+\documentclass[12pt,a4paper]{report}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{array}
+\usepackage{vcell}
+\graphicspath{ {images/} }
+\usepackage[style=numeric, sorting=none, backend=bibtex]{biblatex}
+\usepackage[a4paper,width=150mm,top=25mm,bottom=25mm]{geometry}
+\usepackage{indentfirst}
+\addbibresource{references.bib}
+\usepackage{hyperref}
+
+\begin{document}
+\title{
+{Remaining Useful Life Estimation on Sensor Data}\\
+{\large National Research University Higher School of Economics}\\
+{\large Faculty of Computer Science}\\
+{\large Programme ‘Master of Data Science’}\\
+%{\includegraphics{university.jpg}}
+}
+\author{Mikhail Zaitsev}
+\date{Moscow, 2023}
+\maketitle
+
+
+\chapter*{Abstract}
+Abstract goes here
+\tableofcontents
+
+\chapter{Overview of Remaining Useful Life Models}
+\input{chapters/ch1}
+\printbibliography[
+heading=bibintoc,
+title={References}
+]
+\end{document}

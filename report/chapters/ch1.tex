@@ -1,0 +1,139 @@
+\section{RUL prediction approaches classification}  
+
+Based on the methods and strategies employed to create a prediction model, remaining useful life (RUL) prediction approaches can be divided into different categories. Analytical-based, model-based, knowledge-based, and hybrid-based techniques could all be distinguished as four separate strategies \cite{OKOH2014158}. Further classification could be done by the methodology of the approach taking into account the technique being used.
+
+So, the class of models based on physical failure modeling technique is represented by analytical-based RUL prediction approaches. The technique of calculating the rough physical model of the understudied process or the model of deterioration propagation is referred to as physical failure modeling.
+
+Model-based RUL Prediction refers to statistical and computational methods. In order to estimate the parameters of the underlying mathematical models of the deterioration process, such methods frequently utilise historical run-to-failure data.
+
+Computational techniques are combined with domain knowledge to create knowledge-based methods. where the model logic is determined by expert knowledge of the process behavior and heuristic rulesets.
+Hybrid techniques combine any of the aforementioned techniques.
+
+As research in this area has grown, new techniques and combinations of techniques have begun to be used, making it difficult to categorize them into separate categories. As a result, the previous classification can now be further broken down into three main approaches: physics-based approaches, data-driven approaches, and hybrid approaches \cite{WANG202081}.
+
+Table \ref{table:methods properties} lists the benefits and drawbacks of the aforementioned strategies.
+
+\renewcommand{\arraystretch}{1.5}
+\begin{table}[h!]
+	\centering
+    \resizebox{\textwidth}{!}{
+    \begin{tabular}{ m{3cm}  m{6cm}  m{6cm} }
+        \hline
+		Prognostic \mbox{Approaches} & Advantages & Drawbacks \\
+        \hline
+        Physics-based \mbox{approaches} & 
+        %\vspace{-5.0\baselineskip}
+        \begin{itemize}
+            \item High Accuracy 
+            \item High Interpretability
+            \item Estimation at variable time increments steps
+            \item Extrapolation outside training data
+        \end{itemize} & 
+        \begin{itemize} 
+        	\item Too domain specific, limited transferability
+            \item Vast domain expertise needed to build a model 
+            \item Require assessment of simplifying assumption 
+            \item Becomes too stochastic if the modeled process is complicated 
+            \item May require empirical estimation of parameters
+        \end{itemize}\\
+        \hline
+        Data-driven \mbox{approaches} & 
+        %\vspace{-3.5\baselineskip}
+        \begin{itemize} 
+            \item Do not require vast domain knowledge 
+            \item Fast implementation
+            \item Can be transferred and applied for other domains
+            \item Do not require empirical estimation of parameters
+        \end{itemize} & 
+        \begin{itemize} 
+            \item Require a large amount of data 
+            \item Usually difficult to interpret 
+            \item Models do not incorporate knowledge of the physics of the system
+            \item Very dependent on training strategies due to over-fitting and overgeneralization
+            \item Less accurate on longer prediction horizons 
+        \end{itemize}\\
+        \hline
+        Hybrid \mbox{approaches} & 
+        \begin{itemize} 
+            \item Eliminates some drawbacks of one method by applying different approach to the problem
+            \item Reduce amount of data needed to train models 
+        \end{itemize} & 
+        %\vspace{-1.0\baselineskip}
+        \begin{itemize} 
+            \item Physics-based model is still required 
+            \item Inherits drawbacks of both methods to some extent
+        \end{itemize}\\
+        \hline
+    \end{tabular}}
+\caption{Advantages and drawbacks of prognostic approaches.}
+\label{table:methods properties}
+\end{table}
+
+
+
+
+\section{Physics-based approaches}
+Published application of physics-based approaches for RUL prediction is limited to degradation models of relatively simple components \cite{Bolander2009, LUI2021229327, Daigle2014, Daigle2013}. Even for such relatively simple components, underlying physical-based models are quite complicated. Thus, despite such advantages of physical-based models as high accuracy, interpretability and moderate amount of data requirement their application to complex systems is limited.   
+
+There is published application of physical-based approach to model turbofan engine degradation via Wiener process \cite{Liu8186519}, however the dataset used in this paper is unique, which makes it hard to compare the results with the results obtained on C-MAPSS dataset \cite{Saxena2008}.
+\section{Hybrid approaches}
+Despite that both physics-based and data-driven approaches have their drawbacks when applied independently, the combined use of both approaches might potentially lead to performance gains by utilizing advantages of both approaches.  Specifically, physics-based approaches are limited by underlying model incompleteness and difficulties of estimating parameters of the models if the modeled process is relatively complicated. On the other hand, physics-based models do not require large amount of data, have high interpretability and can be used to extrapolate training or generate synthetic data.  
+Data-drive approaches, in contrast, require representative training data to train but can discover complex patterns if training data is representative and large. Data-driven approaches are usually difficult to interpret. Thus, data-driven approaches can potentially be used in combination with physics-based approaches to enhance the latter.  
+
+Different approaches have been proposed to combine physics-based and data-driven approaches. One of the approaches, described in \cite{Li2022} , uses data-driven model, namely Support Vector Machine (SVM) and Support Vector Regression (SVR) to classify cutting tool wear stage and predict observed value of tool wear from input sensor signals, then the classification results of the tool wear stage are used to determine the prior distribution of the wear model, and the observed values of the tool
+wear are applied to update the physics-based model parameters.
+Another approach \cite{Liu20207848} uses Wiener process physical-based model to generate additional training data which is then utilized together with initial sensors data  as input of data-driven Long Short-Time Memory (LSTM) bidirectional neural-network model to enhance RUL prediction.  
+In this work \cite{KIM2023108102} on aero gas turbine engine fault classification, the outputs of physical-based model, namely, health parameters are passed to data-driven model together with initial sensor data as features for Decision Tree Classifier which performs fault classification.  
+Here \cite{Chao2020}, the authors are proposing the following framework: one Deep Neural Network (DNN) to approximate the physics-based model and the second prognostics DNN used for predicting RUL, based on combined input. The inputs for second prognostics DNN are sensor inputs and the outputs and parameters of approximated physics-based system model.
+\section{Data driven approaches}
+In recent years, data-driven approaches have been widely applied to RUL prediction. The increased availability of training data, no prior knowledge of modeled physical systems requirements and fast implementation made them a popular choice in recent works.  Among them are classical machine learning methods, such as SVR, Decision Trees and Random Forest \cite{Wang2015, Sangram201887623}, which showed good results on predicting RUL.   
+
+With the growing development of machine learning techniques and availability of computational resources, neural networks became more and more popular due to their ability to automatically construct features. Among which, Convolutional Neural Networks (CNN) were the first architectures to make a notable advancements due to the fact that CNN can learn local, spatial structure within data.  In this work \cite{Babu2016} CNN architecture consisting of two layers of 1D convolutions following 1D pooling layer and fully connected final layer was applied to segmented multi-variate time series input data. The results obtained in this research proved that CNN approach can outperform classical machine learning methods. Later, \cite{LI20181} introduced slightly different CNN architecture, consisting of five 2D convolutional layers, each except the last with ten 1D kernels, which got even higher results. Such architecture was aimed to capture longer temporal structure due to increased depth of CNN and thus bigger receptive field.  
+
+However, CNNs are not designed to capture long temporal dependencies in data, to obtain a relatively large receptive field CNN should be deep. The second drawback of CNN in relation to RUL prognostics is that temporal dependencies learned by CNN are not causal, meaning that both previous and following time steps are available for CNN kernel at any particular time step. Due to this fact, Recurrent Neural Networks (RNN) showed better performance than CNNs. RNNs were designed to capture long temporal dependencies by the ability of remembering and updating information about previous time steps in the hidden state. This work \cite{Zheng2017} proposed LSTM model for RUL estimation which outperforms both classical machine learning methods as well as CNNs. As further development this paper suggests using CNN as feature extractor before LSTM to reduce noise and frequency of input features. Another work \cite{ELSHEIKH2019148} enhances LSTM approach by proposing bidirectional LSTM to extract more information from sequential sensor data.  
+
+Recent developments in Graph Neural Networks (GNN) have been reflected in their application to RUL prediction tasks. In contrary to sequential and hierarchical structure of common neural network architectures, GNN allows more flexible and complex relationships between NN structures. In this study \cite{GNMR2020} Gated Graph Neural Network (GGNN) \cite{GatedNN2015} was proposed in which subsets of features were represented as graph nodes, and each edge models causal relations between those subsets. In this way the model was capturing the complex structure of the equipment.  
+
+Most deep learning architectures treat each feature vector with equal importance, not considering the extent by which this vector contribute to predicted values. In order to focus on the features which contribute the most to the prediction the Attention mechanism was introduced and widely applied to different domains, such as natural language translation, computer vision many other fields of study.  
+
+The Attention mechanism was widely adopted and combined with many existing RUL prediction architectures as well as used as stand alone approach. In  \cite{RNNATN2019} the attention mechanism was introduced which weights LSTM outputs of each time step and combines them with final step output. The LSTM model with introduced Attention mechanism outperforms pure LSTM model. In the following work \cite{AGCNN2021}, on contrary, the Attention mechanism was applied to the input features to weight each feature according learned importance to enhance representativeness of input data.
+
+The success of the attention-based models led to its further development and appearance of more advanced self-attention and multi-head attention mechanisms and architectures based mainly on them such as Transformers.  This work \cite{MDSA2022} shows that sequentially applying Multi-Head Attention on features and then on sequences before LSTM layer can produce outstanding results by enhancing information retrieval from input features.  Another study \cite{Zhang2022} obtained similar results by applying modified Transformer architecture to multi-variate time series.  In particular, the modified part was Encoder block of the Transformer, sensor encoder and time step encoder of the same architecture, processing inputs in parallel were introduced as part of this block to extract temporal and spatial features. After extracting, both features are merged together to represent information from both aspects.
+
+The growing demand in NN architecture which can capture long temporal dependencies without drawbacks of RNNs, such as computational complexity due to sequential input processing and vanishing gradients results in invention of Temporal Convolutional Networks \cite{TCN2018}. TCN consists of dilated, causal convolutions, meaning that no information leaks from past time steps to future. The same paper showed that TCNs outperforms RNNs across a broad variety of sequence modeling tasks. Application of TCN to RUL prediction is described in \cite{DATCNN2021}, a proposed consists of spatial and temporal attention blocs and TCN as feature extractors. 
+Another work \cite{BiGRUTCN2022} uses TCN in parallel with bidirectional Gated Recurrent Unit (GRU) after attention block as feature extractor.
+As further development of the TCN ideas, Sample Convolution and Interaction Network (SCINet) was introduced to address some of TCN limitations. The application of SCINet together with LSTM feature extractors is described in \cite{Zhevnenko2023}.
+
+Another approach is based on modified Variational Autoencoder (VAE), the idea behind this approach is to use the latent representation of encoded input sensor signals for RUL prediction. In this research \cite{COSTA2022108353} authors substitute the decoder part of VAE by Regressor, the loss function was modified accordingly. This forced the latent representation of input signal to be representation of the system rate of deterioration. The benefit of this approach is that not only the model is highly accurate but also the latent space obtained from input signals is interpretable.
+
+Table \ref{table:results comparison} shows the results comparison of different methods on C-MAPSS dataset.
+\begin{table}[h!]
+	\centering
+    \resizebox{\textwidth}{!}{    
+\begin{tabular}{cccccccccc}
+    \toprule
+    	\multirow{2}{*}{Methods} & \multirow{2}{*}{Year}
+        & \multicolumn{2}{c}{FD001} 
+        & \multicolumn{2}{c}{FD002}
+        & \multicolumn{2}{c}{FD003}
+        & \multicolumn{2}{c}{FD004}\\
+   \cmidrule(r){3-10} 
+    & & RMSE  & Score  & RMSE  & Score & RMSE  & Score & RMSE  & Score  \\
+    \midrule
+    CNN \cite{Babu2016} & 2016 & 18.448  & 1286 &  30.294 & 13570 & 19.817 & 1596 &  29.156  & 7886    \\
+    LSTM \cite{Zheng2017} & 2017 & 16.14  & 338 &  24.49 & 4450 & 16.18 & 852 &  28.17  & 5550    \\
+    DCNN \cite{LI20181} & 2018 & 12.61  & 274 &  22.36 & 10412 & 12.64 & 284 &  23.31  & 12466    \\
+    Attn-DLSTM \cite{RNNATN2019} & 2019 & 12.22  & - &  23.16 & - & 15.61 & - &  28.30  & -    \\
+    GNMR \cite{GNMR2020} & 2020 & 12.14  & 212 &  20.85 & 3196 & 13.23 & 370 &  21.34  & 2795    \\
+    AGCNN \cite{AGCNN2021} & 2021 & 12.42  & 226 &  19.43 & 1492 & 13.39 & 227 &  21.50  & 3393    \\
+    DA-TCN \cite{DATCNN2021} & 2021 & 11.78  & 229 &  16.95 & 1842 & 11.56 & 257 &  18.23  & 2317    \\
+    RVE \cite{COSTA2022108353} & 2022 & 13.42  & 323 &  14.92 & 1379 & 12.51 & 256 &  16.37  & 1845    \\
+    MDSA \cite{MDSA2022} & 2022 & 11.43  & 209 &  \textbf{13.32} & 1058 & 11.47 & 187 &  \textbf{14.38}  & 1618    \\
+    DAST \cite{Zhang2022} & 2022 & 11.43  & \textbf{203} &  15.25 & 924 & 11.32 & \textbf{155} &  18.36  & \textbf{1490}    \\
+    TCN-BiGRU \cite{BiGRUTCN2022} & 2022 & \textbf{11.17}  & 207 &  14.06 & \textbf{842} & \textbf{10.42} & 207 &  16.34  & 1498    \\
+    Time-feature interaction model \cite{Zhevnenko2023} & 2023 & 11.59  & 208 &  - & - & 10.9 & 187 &  -  & -    \\
+    \bottomrule
+\end{tabular}}
+\caption{Results comparison of different methods on C-MAPSS dataset.}
+\label{table:results comparison}
+\end{table}

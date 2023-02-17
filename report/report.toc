@@ -1,0 +1,7 @@
+\babel@toc {english}{}\relax 
+\contentsline {chapter}{\numberline {1}Overview of Remaining Useful Life Models}{3}{chapter.1}%
+\contentsline {section}{\numberline {1.1}RUL prediction approaches classification}{3}{section.1.1}%
+\contentsline {section}{\numberline {1.2}Physics-based approaches}{3}{section.1.2}%
+\contentsline {section}{\numberline {1.3}Hybrid approaches}{5}{section.1.3}%
+\contentsline {section}{\numberline {1.4}Data driven approaches}{5}{section.1.4}%
+\contentsline {chapter}{References}{8}{chapter*.3}%
