@@ -1,13 +1,18 @@
 import torch
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
-from scipy import interpolate
-import numpy as np
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
-from collections import defaultdict
 from sklearn.model_selection import GroupShuffleSplit
-
+import torch.nn.functional as F
+from models import Encoder, Decoder, RVE
+from collections import defaultdict
+from torch import optim as optim
+import numpy as np
+import matplotlib.pyplot as plt
+import torch.nn as nn
+from IPython.display import clear_output
+import random
 
 class CMAPSS:
     def __init__(self,
@@ -99,7 +104,7 @@ class CMAPSS:
         for condition in df['op_cond'].unique():
             scaler = self.scaler.get(condition, StandardScaler())
             if not is_fit_called(scaler):
-                print(f"Fit scaler on: {condition}")
+                #print(f"Fit scaler on: {condition}")
                 scaler.fit(df.loc[df['op_cond'] == condition, sensor_names])
                 self.scaler[condition] = scaler
             df.loc[df['op_cond'] == condition, sensor_names] = scaler.transform(
@@ -214,6 +219,7 @@ class RVEDataset(Dataset):
         self.run_id = None
         self.sequences = None
         self.targets = None
+        self.ids = None
         self.mode = mode
         self.max_rul = max_rul
         self.window_size = window_size
@@ -227,6 +233,7 @@ class RVEDataset(Dataset):
         sensors = self.sensors
         columns_to_pick = ["unit_nr"] + sensors + ["RUL"]
         units = df['unit_nr'].unique()
+        self.ids = units
         temp_sequences = []
         for unit in units:
             unit_df = df[df['unit_nr'] == unit].sort_values(by='time_cycles', ascending=True)
@@ -239,10 +246,10 @@ class RVEDataset(Dataset):
                 else:
                     temp_sequences.append(unit_slice[slice_len - window_size:])
             else:
-                if self.mode == "train":
-                    # row number < sequence length, only one sequence
-                    # pad width first time-cycle value
-                    temp_sequences.append(np.pad(unit_slice, ((window_size - slice_len, 0), (0, 0)), 'edge'))
+                #if self.mode == "train":
+           	# row number < sequence length, only one sequence
+            	# pad width first time-cycle value
+            	temp_sequences.append(np.pad(unit_slice, ((window_size - slice_len, 0), (0, 0)), 'edge'))
             data = np.stack(temp_sequences)
 
         self.sequences = data[:, :, 1:-1]
@@ -260,90 +267,346 @@ class RVEDataset(Dataset):
         return torch.FloatTensor(self.sequences[mask]), torch.FloatTensor(self.targets[mask])
 
 
-class ModelTrainer:
+class Trainer:
+
     @staticmethod
-    def score(y_hat, y):
-        if torch.is_tensor(y_hat):
-            y_hat = y_hat.detach().cpu().numpy()
-        if torch.is_tensor(y):
-            y = y.detach().cpu().numpy()
+    def score(y, y_hat):
+        score = 0
+        y = y.cpu()
+        y_hat = y_hat.cpu()
+        for i in range(len(y_hat)):
+            if y[i] <= y_hat[i]:
+                score += np.exp(-(y[i] - y_hat[i]) / 10.0) - 1
+            else:
+                score += np.exp((y[i] - y_hat[i]) / 13.0) - 1
+        return score
 
-        error = y_hat - y
-        pos_e = np.exp(-error[error < 0] / 13) - 1
-        neg_e = np.exp(error[error >= 0] / 10) - 1
-        return sum(pos_e) + sum(neg_e)
+    @staticmethod
+    def kl_loss(mean, log_var):
+        loss = (-0.5 * (1 + log_var - mean ** 2 - torch.exp(log_var)).sum(dim=1)).mean(dim=0)
+        return loss
 
+    @staticmethod
+    def reg_loss(y, y_hat):
+        # loss = F.mse_loss(y, y_hat, reduction='none')
+        # loss = torch.mean(loss)
+        return nn.MSELoss()(y, y_hat)
 
-    def __init__(self, model, optimizer, criterion, train_loader, test_loader, val_loader=None):
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.model = model.to(self.device)
-        self.optimizer = optimizer
+    @staticmethod
+    def reconstruction_loss(x, x_hat):
+        batch_size = x.shape[0]
+        loss = F.mse_loss(x, x_hat, reduction='none')
+        loss = loss.view(batch_size, -1).sum(axis=1)
+        loss = loss.mean()
+        return loss
+
+    def __init__(self, model, train_loader, val_loader, test_loader, optimizer, verbose=False):
         self.train_loader = train_loader
         self.test_loader = test_loader
-        if val_loader:
+        if val_loader is not None:
             self.val_loader = val_loader
             self.validate = True
         else:
             self.validate = False
-        self.criterion = criterion
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.model = model.to(self.device)
+        self.optimizer = optimizer
         self.history = defaultdict(list)
-        print("dataset len", len(self.train_loader.dataset), len(self.test_loader.dataset))
-        print("Training on:", self.device)
+        self.epochs = 0
+        self.verbose = verbose
+        self.best_score = float('inf')
+        self.best_rmse = float('inf')
 
     def train(self, n_epoch):
         for i in range(n_epoch):
             self.train_epoch()
-            print(f"Epoch:{i} "
-                  f"Train Loss: {round(self.history['train_loss'][-1], 2)} "
-                  f"Test Loss: {round(self.history['test_loss'][-1], 2)} "
-                  f"Test Score: {round(self.history['test_score'][-1], 2)}"
-                  )
+            self.epochs += 1
+            if self.verbose:
+                plot_learning_curves(self.history, reconstruction=True)
+                print(f"Epoch:{self.epochs} ")
+                print(f"Train loss: {round(self.history['train_loss'][-1], 2)} "
+                      f"kl loss: {round(self.history['train_kl_loss'][-1], 2)} "
+                      f"reg loss: {round(self.history['train_reg_loss'][-1], 2)} "
+                      f"recon loss: {round(self.history['train_recon_loss'][-1], 2)}")
+                print(f"Valid loss: {round(self.history['valid_loss'][-1], 2)} "
+                      f"kl loss: {round(self.history['valid_kl_loss'][-1], 2)} "
+                      f"reg loss: {round(self.history['valid_reg_loss'][-1], 2)} "
+                      f"recon loss: {round(self.history['valid_recon_loss'][-1], 2)}")
+                print("Test:")
+                print(f"     RMSE: {round(self.history['test_rmse'][-1], 2)} "
+                      f"     Score: {round(self.history['test_score'][-1], 2)}"
+                      )
+                print(f"Best RMSE: {round(self.best_rmse, 2)} Best score: {round(self.best_score, 2)}")
 
     def train_epoch(self):
         epoch_loss = 0
+        kl_loss_ep = 0
+        reg_loss_ep = 0
+        recon_loss_ep = 0
+        recon_loss = 0
         self.model.train()
         for batch_idx, data in enumerate(self.train_loader):
             self.optimizer.zero_grad()
-            x, y, _ = data
+            x, y = data
             x, y = x.to(self.device), y.to(self.device)
-            y_hat = self.model(x)
-            loss = self.criterion(y_hat, y)
+            if self.model.decode_mode:
+                y_hat, z, mean, log_var, x_hat = self.model(x)
+                kl_loss = Trainer.kl_loss(mean, log_var)
+                reg_loss = Trainer.reg_loss(y, y_hat)
+                recon_loss = Trainer.reconstruction_loss(x, x_hat)
+                loss = kl_loss + reg_loss + recon_loss
+
+            else:
+                y_hat, z, mean, log_var = self.model(x)
+                kl_loss = Trainer.kl_loss(mean, log_var)
+                reg_loss = Trainer.reg_loss(y, y_hat)
+                loss = kl_loss + reg_loss
+
             loss.backward()
             self.optimizer.step()
-            epoch_loss += loss.item()*len(y)
+            epoch_loss += loss.item() * len(y)
+            kl_loss_ep += kl_loss.item() * len(y)
+            reg_loss_ep += reg_loss.item() * len(y)
+            if self.model.decode_mode:
+                recon_loss_ep += recon_loss.item() * len(y)
 
-        epoch_loss = (epoch_loss/len(self.train_loader.dataset))**0.5
-        self.history['train_loss'].append(epoch_loss)
-        self.test_valid_epoch(mode='test')
+        self.history['train_loss'].append(epoch_loss / len(self.train_loader.dataset))
+        self.history['train_kl_loss'].append(kl_loss_ep / len(self.train_loader.dataset))
+        self.history['train_reg_loss'].append(reg_loss_ep / len(self.train_loader.dataset))
+        self.history['train_recon_loss'].append(recon_loss_ep / len(self.train_loader.dataset))
         if self.validate:
-            self.test_valid_epoch(mode='validation')
+            self.valid_epoch()
+            self.test_epoch()
 
-    def test_valid_epoch(self, mode):
-        assert mode in ['test', 'validation'], 'wrong mode'
-        if mode == 'test':
-            data_loader = self.test_loader
-        else:
-            data_loader = self.val_loader
+    def valid_epoch(self):
         epoch_loss = 0
         epoch_score = 0
+        kl_loss_ep = 0
+        reg_loss_ep = 0
+        recon_loss_ep = 0
+        recon_loss = 0
         self.model.eval()
-        for batch_idx, data in enumerate(data_loader):
+        for batch_idx, data in enumerate(self.val_loader):
             with torch.no_grad():
-                x, y, _ = data
+                x, y = data
                 x, y = x.to(self.device), y.to(self.device)
-                y_hat = self.model(x)
-                loss = self.criterion(y_hat, y)
+                if self.model.decode_mode:
+                    y_hat, z, mean, log_var, x_hat = self.model(x)
+                    kl_loss = Trainer.kl_loss(mean, log_var)
+                    reg_loss = Trainer.reg_loss(y, y_hat)
+                    recon_loss = Trainer.reconstruction_loss(x, x_hat)
+                    loss = kl_loss + reg_loss + recon_loss
+                else:
+                    y_hat, z, mean, log_var = self.model(x)
+                    kl_loss = Trainer.kl_loss(mean, log_var)
+                    reg_loss = Trainer.reg_loss(y, y_hat)
+                    loss = kl_loss + reg_loss
 
                 epoch_loss += loss.item() * len(y)
-                epoch_score += ModelTrainer.score(y_hat, y)
+                kl_loss_ep += kl_loss.item() * len(y)
+                reg_loss_ep += reg_loss.item() * len(y)
+                if self.model.decode_mode:
+                    recon_loss_ep += recon_loss.item()
 
-        epoch_loss = (epoch_loss / len(data_loader.dataset)) ** 0.5
-        self.history[f'{mode}_loss'].append(epoch_loss)
-        self.history[f'{mode}_score'].append(epoch_score)
+        epoch_loss = epoch_loss
+        self.history['valid_loss'].append(epoch_loss / len(self.val_loader.dataset))
+        self.history['valid_kl_loss'].append(kl_loss_ep / len(self.val_loader.dataset))
+        self.history['valid_reg_loss'].append(reg_loss_ep / len(self.val_loader.dataset))
+        self.history['valid_recon_loss'].append(recon_loss_ep / len(self.val_loader.dataset))
+
+    def test_epoch(self):
+        epoch_rmse = 0
+        epoch_score = 0
+        self.model.eval()
+        for batch_idx, data in enumerate(self.test_loader):
+            with torch.no_grad():
+                x, y = data
+                x, y = x.to(self.device), y.to(self.device)
+
+                y_hat, *_ = self.model(x)
+                loss = F.mse_loss(y_hat, y)
+
+                epoch_rmse += loss.item() * len(y)
+                epoch_score += Trainer.score(y, y_hat).item()
+
+        epoch_rmse = (epoch_rmse / len(self.test_loader.dataset)) ** 0.5
+        self.best_score = min(self.best_score, epoch_score)
+        self.best_rmse = min(self.best_rmse, epoch_rmse)
+        self.history['test_rmse'].append(epoch_rmse)
+        self.history['test_score'].append(epoch_score)
 
 
-    def save_history(self):
-        pass
+def viz_latent_space(model, data, targets=[], title='Final', save=False, show=True):
+    data = torch.tensor(data).float()
+    model.to('cpu')
+    with torch.no_grad():
+        z, _, _  = model.encoder(data)
+        z = z.numpy()
+    plt.figure(figsize=(8, 4))
+    if len(targets)>0:
+        plt.scatter(z[:, 0], z[:, 1], c=targets, s=1.5)
+    else:
+        plt.scatter(z[:, 0], z[:, 1])
+    plt.xlabel('z - dim 1')
+    plt.ylabel('z - dim 2')
+    plt.colorbar()
+    plt.title(title)
+    if show:
+        plt.tight_layout()
+    if save:
+        plt.savefig('./images/latent_space_epoch'+str(title)+'.png')
+
+
+def get_trainer(dataset_name, sensors, max_rul=125, alpha=0.1, hidden_size=200, latent_dim=2, num_layers=1,
+                batch_size=128, lr=0.0005, window_size=30, reconstruct=False):
+    input_size = len(sensors)
+
+    train_loader, test_loader, val_loader = CMAPSS(
+        dataset_name=dataset_name,
+        max_rul=max_rul,
+        train_batch_size=batch_size,
+        window_size=window_size,
+        sensors=sensors,
+        alpha=alpha
+    ).get_dataloaders()
+
+    x_train = train_loader.dataset.sequences
+    y_train = train_loader.dataset.targets
+
+    x_val = val_loader.dataset.sequences
+    y_val = val_loader.dataset.targets
+
+    x_test = test_loader.dataset.sequences
+    y_test = test_loader.dataset.targets
+
+    model = get_RVE_model(
+        input_size=input_size,
+        hidden_size=hidden_size,
+        latent_dim=latent_dim,
+        window_size=window_size,
+        num_layers=num_layers,
+        reconstruct=reconstruct
+    )
+
+    optimizer = optim.Adam(model.parameters(), lr=lr)
+
+    trainer = Trainer(model, train_loader, val_loader, test_loader, optimizer, True)
+
+    return trainer, x_train, y_train, x_val, y_val, x_test, y_test, train_loader, test_loader, val_loader
+
+
+def plot_learning_curves(history, reconstruction=False):
+    clear_output(True)
+    if reconstruction:
+        fig, ax = plt.subplots(nrows=3, ncols=2, sharex=True, figsize=(16, 6))
+
+        ax[0][0].plot(history['train_loss'], label='train loss')
+        ax[0][0].plot(history['valid_loss'], label='val loss')
+
+        ax[0][1].plot(history['train_kl_loss'], label='train kl_loss loss')
+        ax[0][1].plot(history['valid_kl_loss'], label='val kl_loss loss')
+
+        ax[1][0].plot(history['train_reg_loss'], label='train reg loss')
+        ax[1][0].plot(history['valid_reg_loss'], label='val reg loss')
+
+        ax[1][1].plot(history['train_recon_loss'], label='train reconstruction loss')
+        ax[1][1].plot(history['valid_recon_loss'], label='val reconstruction loss')
+
+        ax[2][0].plot(history['test_rmse'], label='test rmse')
+        ax[2][1].plot(history['test_score'], label='test score')
+
+        ax[0][0].legend(loc='upper right')
+        ax[0][1].legend(loc='upper right')
+        ax[1][0].legend(loc='upper right')
+        ax[1][1].legend(loc='upper right')
+        ax[2][0].legend(loc='upper right')
+        ax[2][1].legend(loc='upper right')
+        ax[0][0].grid(True)
+        ax[0][1].grid(True)
+        ax[1][0].grid(True)
+        ax[1][1].grid(True)
+        ax[2][0].grid(True)
+        ax[2][1].grid(True)
+        ax[0][0].set_yscale('log')
+        ax[0][1].set_yscale('log')
+        ax[1][0].set_yscale('log')
+        ax[1][1].set_yscale('log')
+        ax[2][0].set_yscale('log')
+        ax[2][1].set_yscale('log')
+        plt.show()
+
+
+def get_RVE_model(
+        input_size,
+        hidden_size,
+        latent_dim,
+        window_size,
+        num_layers=1,
+        reconstruct=False):
+    enc_block = Encoder(
+        input_size=input_size,
+        hidden_size=hidden_size,
+        latent_dim=latent_dim,
+        num_layers=num_layers
+    )
+
+    dec_block = Decoder(
+        input_size=input_size,
+        hidden_size=hidden_size,
+        latent_dim=latent_dim,
+        window_size=window_size,
+        num_layers=num_layers
+    )
+
+    model = RVE(enc_block, dec_block, reconstruct=reconstruct)
+    return model
+
+
+def get_engine_runs(dataloader, model):
+    engine_ids = dataloader.dataset.ids
+    history = defaultdict(dict)
+    model.eval().to('cpu')
+
+    for engine_id in engine_ids:
+        with torch.no_grad():
+            x, y = dataloader.dataset.get_run(engine_id)
+            y_hat, z, *_ = model(x)
+            history[engine_id]['rul'] = y.numpy()
+            history[engine_id]['rul_hat'] = y_hat.numpy()
+            history[engine_id]['z'] = z.numpy()
+
+    return history
+
+
+def plot_engine_run(history, engine_id=None):
+    engine_ids = history.keys()
+
+    if engine_id is None:
+        engine_id = random.choice(list(engine_ids))
+
+    fig, ax = plt.subplots(nrows=2, ncols=1, sharex=False, figsize=(12, 6))
+    real_rul = history[engine_id]['rul']
+    rul_hat = history[engine_id]['rul_hat']
+    ax[0].plot(real_rul)
+    ax[0].plot(rul_hat)
+    ax[0].set_title(f"Engine Unit #{engine_id}")
+    ax[0].set_xlabel("Time(Cycle)")
+    ax[0].set_ylabel("RUL")
+    for run in engine_ids:
+        z = history[run]['z']
+        targets = history[run]['rul']
+        pa = ax[1].scatter(z[:, 0], z[:, 1], c=targets, s=1.5)
+    cba = plt.colorbar(pa, shrink=1.0)
+    cba.set_label("RUL")
+
+    z = history[engine_id]['z']
+    targets = history[engine_id]['rul']
+    pb = ax[1].scatter(z[:, 0], z[:, 1], c=targets, s=15, cmap=plt.cm.gist_heat_r)
+    cbb = plt.colorbar(pb, shrink=1.0)
+    cbb.set_label(f"Engine #{engine_id} RUL")
+    ax[1].set_xlabel("z - dim 1")
+    ax[1].set_ylabel("z - dim 2")
+    plt.show()
 
 
 if __name__ == "__main__":
