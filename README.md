@@ -14,6 +14,7 @@ pytorch==1.12.1
 
 
 ## Structure of the repository:
+
 ```
 ├── CMAPSSData
 │   ├── Damage Propagation Modeling.pdf
@@ -30,10 +31,17 @@ pytorch==1.12.1
 │   ├── train_FD002.txt
 │   ├── train_FD003.txt
 │   └── train_FD004.txt
-├── Experiments.ipynb
-├── preprocess.py
+├── models.py
 ├── README.md
-├── results.csv
-├── SCINet.py
-└── train.py
+├── report
+│   ├── chapters
+│   │   ├── ch1.log
+│   │   └── ch1.tex
+│   ├── images
+│   ├── references.bib
+│   ├── report.pdf
+│   ├── report.tex
+├── RVE_MVP.ipynb
+├── rve_utils.py
 ```
+
