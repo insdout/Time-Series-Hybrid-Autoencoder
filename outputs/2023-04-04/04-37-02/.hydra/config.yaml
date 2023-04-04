@@ -1,0 +1,90 @@
+data_preprocessor:
+  dataset_name: FD003
+  max_rul: 125
+  window_size: 30
+  sensors:
+  - s_3
+  - s_4
+  - s_7
+  - s_11
+  - s_12
+  train_size: 0.8
+  alpha: 1
+  dir_path: ./CMAPSSData/
+  train_ds_mode: train
+  train_ds_return_pairs: true
+  train_ds_eps: 2
+  train_ds_max_eps: 22
+  train_ds_triplet_healthy_rul: 120
+  test_ds_mode: test
+  test_ds_return_pairs: false
+  test_ds_eps: 2
+  test_ds_max_eps: 22
+  test_ds_triplet_healthy_rul: 120
+  val_ds_mode: train
+  val_ds_return_pairs: true
+  val_ds_eps: 2
+  val_ds_max_eps: 22
+  val_ds_triplet_healthy_rul: 120
+  train_dl_batch_size: 100
+  train_dl_shuffle: true
+  train_dl_num_workers: 2
+  test_dl_batch_size: 100
+  test_dl_shuffle: false
+  test_dl_num_workers: 2
+  val_dl_batch_size: 100
+  val_dl_shuffle: true
+  val_dl_num_workers: 2
+model:
+  encoder:
+    _target_: models.Encoder
+    input_size: 5
+    hidden_size: 128
+    latent_dim: 2
+    num_layers: 1
+    bidirectional: false
+  decoder:
+    _target_: models.Decoder
+    input_size: ${model.encoder.input_size}
+    hidden_size: ${model.encoder.hidden_size}
+    latent_dim: ${model.encoder.latent_dim}
+    window_size: ${data_preprocessor.window_size}
+    num_layers: 1
+    bidirectional: ${model.encoder.bidirectional}
+  rve:
+    _target_: models.RVE
+    reconstruct: true
+    dropout: 0.6
+optimizer:
+  _target_: torch.optim.adam.Adam
+  lr: 0.0005
+loss:
+  total_loss:
+  - ReconLoss
+  - RegLoss
+  - TripletLoss
+  - KLLoss
+  ReconLoss:
+    _target_: loss.ReconLoss
+    weight: 1
+    z_dims: false
+  RegLoss:
+    _target_: loss.RegLoss
+    weight: 1
+    z_dims: false
+  TripletLoss:
+    _target_: loss.TripletLoss
+    weight: 1
+    z_dims: false
+    margin: 1
+    p: 2
+  KLLoss:
+    _target_: loss.KLLoss
+    weight: 1
+    z_dims: false
+trainer:
+  validate: true
+  save_model: true
+  save_history: true
+  n_epochs: 10
+  verbose: true
