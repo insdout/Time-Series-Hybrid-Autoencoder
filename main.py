@@ -42,9 +42,6 @@ def main(config):
     path = hydra_cfg['runtime']['output_dir']
     model = torch.load(path+"/rve_model.pt")
 
-    preproc = MetricDataPreprocessor(**config.data_preprocessor)
-    train_loader, test_loader, val_loader = preproc.get_dataloaders()
-
     tester = Tester(path, model, val_loader, test_loader)
     z, t, y = tester.get_z()
     print(z.shape, y.shape, y.shape, len(val_loader.dataset))
