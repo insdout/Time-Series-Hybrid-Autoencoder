@@ -14,13 +14,37 @@ from omegaconf import DictConfig, OmegaConf
 class MetricDataPreprocessor:
     """TODO: docstring"""
     def __init__(self,
-                 dataset_name,
-                 max_rul,
-                 window_size,
-                 sensors,
-                 train_size,
-                 alpha,
-                 dir_path
+                dataset_name,
+                max_rul,
+                window_size,
+                sensors,
+                train_size,
+                alpha,
+                dir_path,
+                train_ds_mode="train",
+                train_ds_return_pairs=True,
+                train_ds_eps=3,
+                train_ds_max_eps=6,
+                train_ds_triplet_healthy_rul=120,
+                test_ds_mode="test",
+                test_ds_return_pairs=False,
+                test_ds_eps=3,
+                test_ds_max_eps=6,
+                test_ds_triplet_healthy_rul=120,
+                val_ds_mode="train",
+                val_ds_return_pairs=True,
+                val_ds_eps=3,
+                val_ds_max_eps=6,
+                val_ds_triplet_healthy_rul=120,
+                train_dl_batch_size=100,
+                train_dl_shuffle=True,
+                train_dl_num_workers=2,
+                test_dl_batch_size=100,
+                test_dl_shuffle=False,
+                test_dl_num_workers=2,
+                val_dl_batch_size=100,
+                val_dl_shuffle=True,
+                val_dl_num_workers=2
                  ):
 
         self.dataset_name = dataset_name
@@ -34,6 +58,36 @@ class MetricDataPreprocessor:
         self.dir_path = dir_path
         self.alpha = alpha
         self.scaler = {}
+        self.train_ds_kwargs = {}
+        self.test_ds_kwargs = {}
+        self.val_ds_kwargs = {}
+        self.train_dl_kwargs = {}
+        self.test_dl_kwargs = {}
+        self.val_dl_kwargs = {}
+        self.train_ds_kwargs["mode"]=train_ds_mode
+        self.train_ds_kwargs["return_pairs"]=train_ds_return_pairs
+        self.train_ds_kwargs["triplet_eps"]=train_ds_eps
+        self.train_ds_kwargs["triplet_max_eps"]=train_ds_max_eps
+        self.train_ds_kwargs["triplet_healthy_rul"]=train_ds_triplet_healthy_rul
+        self.test_ds_kwargs["mode"]=test_ds_mode
+        self.test_ds_kwargs["return_pairs"]=test_ds_return_pairs
+        self.test_ds_kwargs["triplet_eps"]=test_ds_eps
+        self.test_ds_kwargs["triplet_max_eps"]=test_ds_max_eps
+        self.test_ds_kwargs["triplet_healthy_rul"]=test_ds_triplet_healthy_rul
+        self.val_ds_kwargs["mode"]=val_ds_mode
+        self.val_ds_kwargs["return_pairs"]=val_ds_return_pairs
+        self.val_ds_kwargs["triplet_eps"]=val_ds_eps
+        self.val_ds_kwargs["triplet_max_eps"]=val_ds_max_eps
+        self.val_ds_kwargs["triplet_healthy_rul"]=val_ds_triplet_healthy_rul
+        self.train_dl_kwargs["batch_size"]=train_dl_batch_size
+        self.train_dl_kwargs["shuffle"]=train_dl_shuffle
+        self.train_dl_kwargs["num_workers"]=train_dl_num_workers
+        self.test_dl_kwargs["batch_size"]=test_dl_batch_size
+        self.test_dl_kwargs["shuffle"]=test_dl_shuffle
+        self.test_dl_kwargs["num_workers"]=test_dl_num_workers
+        self.val_dl_kwargs["batch_size"]=val_dl_batch_size
+        self.val_dl_kwargs["shuffle"]=val_dl_shuffle
+        self.val_dl_kwargs["num_workers"]=val_dl_num_workers
 
 
     def _get_rul(self, df, final_rul):
@@ -151,27 +205,20 @@ class MetricDataPreprocessor:
 
         return x_train, x_test, x_val
 
-    def get_datasets(self, train_dataset_kwargs, test_dataset_kwargs, val_dataset_kwargs):
+    def get_datasets(self):
         dataset_kwargs = {"max_rul": self.max_rul, "window_size": self.window_size, "sensors": self.sensors}
         train_df, test_df, val_df = self._load_data()
-        train_dataset = MetricDataset(dataset=train_df, mode='train', **dataset_kwargs, **train_dataset_kwargs)
-        test_dataset = MetricDataset(dataset=test_df, mode='test', **dataset_kwargs, **test_dataset_kwargs)
-        val_dataset = MetricDataset(dataset=val_df, mode='train', **dataset_kwargs, **val_dataset_kwargs)
+        train_dataset = MetricDataset(dataset=train_df, **dataset_kwargs, **self.train_ds_kwargs)
+        test_dataset = MetricDataset(dataset=test_df, **dataset_kwargs, **self.test_ds_kwargs)
+        val_dataset = MetricDataset(dataset=val_df, **dataset_kwargs, **self.val_ds_kwargs)
         return train_dataset, test_dataset, val_dataset
     
-    def get_dataloaders(self, 
-                        train_dataset_kwargs, 
-                        test_dataset_kwargs, 
-                        val_dataset_kwargs, 
-                        train_dataloader_kwargs, 
-                        test_dataloader_kwargs, 
-                        val_dataloader_kwargs
-                        ):
+    def get_dataloaders(self):
 
-        train_dataset, test_dataset, val_dataset = self.get_datasets(train_dataset_kwargs, test_dataset_kwargs, val_dataset_kwargs)
-        train_loader = DataLoader(dataset=train_dataset, **train_dataloader_kwargs)
-        test_loader = DataLoader(dataset=test_dataset, **test_dataloader_kwargs)
-        val_loader = DataLoader(dataset=val_dataset, **val_dataloader_kwargs)
+        train_dataset, test_dataset, val_dataset = self.get_datasets()
+        train_loader = DataLoader(dataset=train_dataset, **self.train_dl_kwargs)
+        test_loader = DataLoader(dataset=test_dataset, **self.test_dl_kwargs)
+        val_loader = DataLoader(dataset=val_dataset, **self.val_dl_kwargs)
         return train_loader, test_loader, val_loader
 
 
@@ -183,7 +230,9 @@ class MetricDataset(Dataset):
                  window_size,
                  sensors,
                  return_pairs,
-                 range_divisors
+                 triplet_eps,
+                 triplet_max_eps,
+                 triplet_healthy_rul
                  ):
         """
         TODO: change docstring
@@ -199,10 +248,9 @@ class MetricDataset(Dataset):
         :param drop_features: list, list of feature indices to be dropped
         """
         self.return_pairs = return_pairs
-        if self.return_pairs:
-            self.range_low = (0, range_divisors[0])
-            self.rande_middle = (range_divisors[0]+1, range_divisors[1]-1)
-            self.range_high = (range_divisors[1], max_rul)
+        self.eps = triplet_eps
+        self.max_eps = triplet_max_eps
+        self.healthy_rul = triplet_healthy_rul
         self.final_rul = None
         self.run_id = None
         self.sequences = None
@@ -218,6 +266,7 @@ class MetricDataset(Dataset):
         self.df = dataset
 
         self.get_sequences(self.df)
+
 
     def get_sequences(self, df):
         window_size = self.window_size
@@ -247,45 +296,46 @@ class MetricDataset(Dataset):
         self.targets = data[:, -1, -1]
         self.run_id = data[:, 0, 0]
     
+
     def __getitem__(self, index):
         if self.return_pairs:
-            return self.get_pairs(index)
-        return self.sequences[index], self.targets[index]
+            return self.get_triplet(index)
+        return torch.FloatTensor(self.sequences[index]), torch.FloatTensor([self.targets[index]])
 
-    def get_pairs(self, index):
+
+    def get_triplet(self, index):
         run_id = self.run_id[index]
         rul = self.targets[index]
-        pairs_x, pairs_y = self.get_three_pairs(run_id)
+        x, y = torch.FloatTensor(self.sequences[index]), torch.FloatTensor([self.targets[index]])
+        pos_x, pos_y = self.get_positive_sample(run_id, rul)
+        neg_x, neg_y = self.get_negative_sample(run_id, rul)
 
-        if rul > 120:
-            pairs_x[0, 0] = self.sequences[index]
-            pairs_y[0, 0] = self.targets[index]
-        elif rul < 5:
-            pairs_x[1, 0] = self.sequences[index]
-            pairs_y[1, 0] = self.targets[index]
-        else:
-            pairs_x[2, 0] = self.sequences[index]
-            pairs_y[2, 0] = self.targets[index]
-        return pairs_x, pairs_y
+        return x, pos_x, neg_x, y, pos_y,neg_y
+
 
     def __len__(self):
         return len(self.sequences)
     
-    def get_sample(self, run_id, rul_range):
-        mask = (self.targets >= rul_range[0]) & (self.targets <= rul_range[0]) & (self.run_id == run_id)
-        indexes = mask.nonzero()
+
+    def get_positive_sample(self, run_id, rul):
+        if rul >= self.healthy_rul:
+            mask = (self.targets >= self.healthy_rul) & (self.run_id == run_id)
+        else: 
+            mask = (abs(self.targets - rul) <= self.eps) & (self.run_id == run_id)
+        indexes = np.flatnonzero(mask)
         idx = random.choice(indexes)
-        return self.sequences[idx], self.targets[idx]
+        return torch.FloatTensor(self.sequences[idx]), torch.FloatTensor([self.targets[idx]])
     
-    def get_three_pairs(self, run_id):
-        x = []
-        y =[]
-        for range in [self.range_high, self.rande_middle, self.range_low]:
-            x1, y1 = self.get_sample(run_id, range)
-            x2, y2 = self.get_sample(run_id, range)
-            x.append([x1.squeeze(), x2.squeeze()])
-            y. append([y1.squeeze(), y2.squeeze()])
-        return np.array(x), np.array(y)
+
+    def get_negative_sample(self, run_id, rul):
+        if rul >= self.healthy_rul:
+            mask = ( self.targets >= self.healthy_rul - self.eps) & (self.targets < self.healthy_rul) & (self.run_id == run_id)
+        else: 
+            mask = (abs(self.targets - rul) <= self.max_eps) & (abs(self.targets - rul) >= self.eps) & (self.run_id == run_id)
+        indexes = np.flatnonzero(mask)
+        idx = random.choice(indexes)
+        return torch.FloatTensor(self.sequences[idx]), torch.FloatTensor([self.targets[idx]])
+
 
     def get_run(self, run_id):
         mask = self.run_id == run_id
@@ -296,26 +346,26 @@ class MetricDataset(Dataset):
 def main(config):
     print()
     print("==========================")
-    print(config.keys())
-    print(config.data_preprocessor)
+    print(OmegaConf.to_yaml(config))
+    print()
+    print(config)
+    print(config.model.input_size)
+    print("keys:", config.keys())
+    print()
+    print("conf:", config.data_preprocessor)
+    print()
+    print("keys.preprocessor",config.data_preprocessor.sensors, type(config.data_preprocessor.sensors), config.data_preprocessor.sensors[0])
+    print()
     print(type(config.data_preprocessor.sensors) != list)
+    print()
     print(type([]) == list)
-    print(config.train_dataset)
-    print(config.test_dataset)
-    print(config.val_dataset)
     print("==========================")
 
     preproc = MetricDataPreprocessor(**config.data_preprocessor)
-    train_loader, test_loader, val_loader = preproc.get_dataloaders(
-        config.train_dataset, 
-        config.test_dataset, 
-        config.val_dataset, 
-        config.train_dataloader, 
-        config.test_dataloader, 
-        config.val_dataloader
-        )
-    x, y = train_loader.dataset[0]
-    print(f"x shape: {x.shape} y shape: {y.shape}")
+    train_loader, test_loader, val_loader = preproc.get_dataloaders()
+    x, pos_x, neg_x, y, pos_y, neg_y = next(iter(train_loader))
+    print(f"x shape: {x.shape} y shape: {y.shape} {pos_x.shape}{pos_y.shape}{neg_y.shape}{neg_y.shape}")
+   
 
 
 if __name__ == "__main__":

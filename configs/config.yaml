@@ -1,35 +1,6 @@
-data_preprocessor:
-  dataset_name: "FD001"
-  max_rul: 150
-  window_size: 30
-  sensors: ['s_3', 's_4', 's_7', 's_11', 's_12']
-  train_size: 0.8
-  alpha: 0.1
-  dir_path: './CMAPSSData/'
-train_dataset:
-  return_pairs: True
-  range_divisors: 
-    - 5
-    - 120
-test_dataset:
-  return_pairs: False
-  range_divisors: 
-    - 5
-    - 120
-val_dataset:
-  return_pairs: True
-  range_divisors: 
-    - 5
-    - 120
-train_dataloader:
-  batch_size: 100
-  shuffle: True
-  num_workers: 2
-test_dataloader:
-  batch_size: 64
-  shuffle: False
-  num_workers: 2
-val_dataloader:
-  batch_size: 64
-  shuffle: False
-  num_workers: 2
+defaults:
+  - data_preprocessor: metric
+  - model: base_rve
+  - optimizer: adam
+  - loss: triplet
+  - trainer: base_trainer

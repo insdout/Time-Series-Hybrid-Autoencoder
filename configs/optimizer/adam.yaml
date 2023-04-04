@@ -1,0 +1,2 @@
+  _target_: "torch.optim.adam.Adam"
+  lr: 0.0005
