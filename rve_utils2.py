@@ -250,9 +250,9 @@ class RVEDataset(Dataset):
                 #if self.mode == "train":
            	# row number < sequence length, only one sequence
             	# pad width first time-cycle value
-            	temp_sequences.append(np.pad(unit_slice, ((window_size - slice_len, 0), (0, 0)), 'edge'))
+                temp_sequences.append(np.pad(unit_slice, ((window_size - slice_len, 0), (0, 0)), 'edge'))
             data = np.stack(temp_sequences)
-
+            
         self.sequences = data[:, :, 1:-1]
         self.targets = data[:, -1, -1]
         self.run_id = data[:, 0, 0]
@@ -507,7 +507,7 @@ def get_trainer(dataset_name, sensors, max_rul=125, alpha=0.1, hidden_size=200, 
 
     optimizer = optim.Adam(model.parameters(), lr=lr)
 
-    trainer = Trainer(model, train_loader, val_loader, test_loader, optimizer, verbose)
+    trainer = Trainer(model, train_loader, val_loader, test_loader, optimizer, )
 
     return trainer, x_train, y_train, x_val, y_val, x_test, y_test, train_loader, test_loader, val_loader
 

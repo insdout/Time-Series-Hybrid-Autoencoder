@@ -318,12 +318,13 @@ class MetricDataset(Dataset):
     
 
     def get_positive_sample(self, run_id, rul):
+        """ Выбирается точка из траектории с run_id по маске на основе расстояния RUL точки от RUL потенциального позитивного примера не более eps """
         if rul >= self.healthy_rul:
             mask = (self.targets >= self.healthy_rul) & (self.run_id == run_id)
         else: 
             mask = (abs(self.targets - rul) <= self.eps) & (self.run_id == run_id)
-        indexes = np.flatnonzero(mask)
-        idx = random.choice(indexes)
+        mask_indexes = np.flatnonzero(mask)
+        idx = random.choice(mask_indexes)
         return torch.FloatTensor(self.sequences[idx]), torch.FloatTensor([self.targets[idx]])
     
 

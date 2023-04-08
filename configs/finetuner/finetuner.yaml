@@ -1,0 +1,39 @@
+checkpoint: 
+  path: "./outputs/2023-04-07/13-07-51/rve_model.pt"
+only_healthy: False
+healthy_rul_treshold: ${finetuner.tuner.metric_rul_threshold}
+total_loss:
+  - ReconLoss
+  - RegLoss
+  - TripletLoss
+  - KLLoss
+ReconLoss:
+  _target_: loss.ReconLoss
+  weight: 1
+  z_dims: False
+RegLoss:
+  _target_: loss.RegLoss
+  weight: 1
+  z_dims: False
+TripletLoss:
+  _target_: loss.TripletLoss
+  weight: 1
+  z_dims: False
+  margin: 1
+  p: 2
+KLLoss:
+  _target_: loss.KLLoss
+  weight: 1
+  z_dims: False
+tuner:
+  n_epochs: 20
+  validate: True 
+  save_model: True 
+  save_history: True 
+  metric_rul_threshold: 120
+  metric_n_neighbors: 3
+  verbose: False
+optimizer:
+  _target_: "torch.optim.AdamW"
+  lr: 0.0005
+  weight_decay: 0.01

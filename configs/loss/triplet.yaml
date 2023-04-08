@@ -13,9 +13,9 @@ RegLoss:
   z_dims: False
 TripletLoss:
   _target_: loss.TripletLoss
-  weight: 1
+  weight: 10
   z_dims: False
-  margin: 1
+  margin: 0.4
   p: 2
 KLLoss:
   _target_: loss.KLLoss

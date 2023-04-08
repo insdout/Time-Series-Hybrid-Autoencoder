@@ -14,6 +14,7 @@ import torch.nn as nn
 from IPython.display import clear_output
 import random
 
+
 class CMAPSS:
     def __init__(self,
                  dataset_name,
@@ -458,7 +459,7 @@ def viz_latent_space(model, data, targets=[], title='Final', save=False, show=Tr
 
 
 def get_trainer(dataset_name, sensors, max_rul=125, alpha=0.1, hidden_size=200, latent_dim=2, num_layers=1,
-                batch_size=128, lr=0.0005, window_size=30, reconstruct=False):
+                batch_size=128, lr=0.0005, window_size=30, reconstruct=False, model=None):
     input_size = len(sensors)
 
     train_loader, test_loader, val_loader = CMAPSS(
@@ -479,14 +480,15 @@ def get_trainer(dataset_name, sensors, max_rul=125, alpha=0.1, hidden_size=200, 
     x_test = test_loader.dataset.sequences
     y_test = test_loader.dataset.targets
 
-    model = get_RVE_model(
-        input_size=input_size,
-        hidden_size=hidden_size,
-        latent_dim=latent_dim,
-        window_size=window_size,
-        num_layers=num_layers,
-        reconstruct=reconstruct
-    )
+    if model is None:
+        model = get_rve_model(
+            input_size=input_size,
+            hidden_size=hidden_size,
+            latent_dim=latent_dim,
+            window_size=window_size,
+            num_layers=num_layers,
+            reconstruct=reconstruct
+        )
 
     optimizer = optim.Adam(model.parameters(), lr=lr)
 
@@ -536,7 +538,7 @@ def plot_learning_curves(history, reconstruction=False):
         plt.show()
 
 
-def get_RVE_model(
+def get_rve_model(
         input_size,
         hidden_size,
         latent_dim,

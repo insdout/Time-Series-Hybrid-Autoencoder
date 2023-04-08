@@ -3,8 +3,9 @@ encoder:
   input_size: 5 
   hidden_size: 128 
   latent_dim: 2 
-  num_layers: 1 
-  bidirectional: False
+  num_layers: 2 
+  dropout: 0.5
+  bidirectional: True
 decoder:
   _target_: models.Decoder
   input_size: ${model.encoder.input_size}

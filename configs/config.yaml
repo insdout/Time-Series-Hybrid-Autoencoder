@@ -4,3 +4,4 @@ defaults:
   - optimizer: adam
   - loss: triplet
   - trainer: base_trainer
+  - finetuner: finetuner

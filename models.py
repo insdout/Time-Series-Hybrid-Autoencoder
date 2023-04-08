@@ -3,7 +3,7 @@ import torch.nn as nn
 
 
 class Encoder(nn.Module):
-    def __init__(self, input_size, hidden_size, latent_dim, num_layers=1, bidirectional=True):
+    def __init__(self, input_size, hidden_size, latent_dim, dropout=0, num_layers=1, bidirectional=True):
         super(Encoder, self).__init__()
         self.input_size = input_size
         self.hidden_size = hidden_size
@@ -11,6 +11,7 @@ class Encoder(nn.Module):
         self.num_layers = num_layers
         self.bidirectional = bidirectional
         self.num_directions = 2 if self.bidirectional else 1
+        self.p = dropout
 
         self.lstm = nn.LSTM(
             input_size=input_size,
@@ -20,15 +21,20 @@ class Encoder(nn.Module):
             bidirectional=self.bidirectional
         )
 
-        self.fc_mean = nn.Linear(
+        self.fc_mean = nn.Sequential(
+            nn.Dropout(self.p),
+            nn.Linear(
             in_features=self.num_directions*hidden_size,
-            out_features=latent_dim
+            out_features=latent_dim)
         )
 
-        self.fc_log_var = nn.Linear(
+
+        self.fc_log_var = nn.Sequential(
+            nn.Dropout(self.p),
+            nn.Linear(
             in_features=self.num_directions*hidden_size,
-            out_features=latent_dim
-        )
+            out_features=latent_dim)
+            )
 
     def reparameterization(self, mean, var):
         epsilon = torch.randn_like(var).to(var.device)
