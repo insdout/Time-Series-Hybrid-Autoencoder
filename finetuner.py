@@ -16,6 +16,9 @@ import hydra
 from omegaconf import DictConfig, OmegaConf
 from hydra.utils import instantiate
 
+from torch.utils.tensorboard import SummaryWriter
+writer = SummaryWriter()
+
 
 class FineTuner():
 
@@ -166,10 +169,19 @@ class FineTuner():
             val_metric = self.metric.fit_calculate(z_val, y_val)
             self.history["Val_metric"].append(val_metric)
             self.metric.plot_zspace(z_val, y_val, save=True, show=False, path=output_dir, title=f"val_epoch_{epoch}_metric_{val_metric :3.4f}")
-
+            
+            z_test, y_test, y_hat_test = self.get_z(self.test_loader)
             test_score, test_rmse = self.get_test_score(self.test_loader)
             self.history["Test_score"].append(test_score)
             self.history["Test_rmse"].append(test_rmse)
+            self.viz_latent_space(z_test, y_test, title=f"test_epoch_{epoch}", save=True, show=False)
+            test_metric = self.metric.fit_calculate(z_test, y_test)
+            self.history["test_metric"].append(test_metric)
+            self.metric.plot_zspace(z_test, y_test, save=True, show=False, path=output_dir, title=f"test_epoch_{epoch}_metric_{test_metric :3.4f}")
+            # Add tensorboard scores and metric
+            writer.add_scalar("Tune/Score/Test", test_score, epoch)
+            writer.add_scalar("Tune/RMSE/Test", test_rmse, epoch)
+            writer.add_scalar("Tune/Metric/Test", test_metric, epoch)
 
             if self.verbose:
                 for key in self.history:
@@ -182,6 +194,8 @@ class FineTuner():
             with open(output_dir+"/history.json", 'w') as fp:
                 json.dump(self.history, fp)
         self.plot_learning_curves(output_dir)
+        writer.flush()
+        writer.close()
     
     def plot_learning_curves(self, path, show=False, save=True):
         history = self.history

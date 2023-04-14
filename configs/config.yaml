@@ -1,5 +1,5 @@
 defaults:
-  - data_preprocessor: metric
+  - data_preprocessor: more_sensors_FD003
   - model: base_rve
   - optimizer: adam
   - loss: triplet

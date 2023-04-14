@@ -173,7 +173,7 @@ class Tester():
 @hydra.main(version_base=None, config_path="./configs", config_name="config.yaml")
 def main(config):
     from metric_dataloader import MetricDataPreprocessor
-    path = "/home/mikhail/Thesis/MDS-Thesis-RULPrediction/outputs/2023-04-03/19-14-10/"
+    path = "/home/mikhail/Thesis/MDS-Thesis-RULPrediction/outputs/2023-04-12/00-37-45/"
     model = torch.load(path+"rve_model.pt")
 
     preproc = MetricDataPreprocessor(**config.data_preprocessor)
@@ -185,7 +185,7 @@ def main(config):
     print(tester.get_test_score())
     tester.test()
 
-    pass
+   
 
 if __name__ == "__main__":
     main()

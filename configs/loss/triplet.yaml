@@ -13,7 +13,7 @@ RegLoss:
   z_dims: False
 TripletLoss:
   _target_: loss.TripletLoss
-  weight: 10
+  weight: 100
   z_dims: False
   margin: 0.4
   p: 2

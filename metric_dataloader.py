@@ -7,44 +7,49 @@ from sklearn.model_selection import GroupShuffleSplit
 import numpy as np
 import random
 
-import hydra 
-from omegaconf import DictConfig, OmegaConf
+import hydra
+from omegaconf import  OmegaConf
 
 
 class MetricDataPreprocessor:
-    """TODO: docstring"""
+    """
+    CMAPSS dataset class, handles data loading, preprocessing and sliding window slicing.
+    Splits preprocessed data into train and validation datasets.
+    Generates Train, Test, Validation datasets and dataloaders.
+    """
+
     def __init__(self,
-                dataset_name,
-                max_rul,
-                window_size,
-                sensors,
-                train_size,
-                alpha,
-                dir_path,
-                train_ds_mode="train",
-                train_ds_return_pairs=True,
-                train_ds_eps=3,
-                train_ds_max_eps=6,
-                train_ds_triplet_healthy_rul=120,
-                test_ds_mode="test",
-                test_ds_return_pairs=False,
-                test_ds_eps=3,
-                test_ds_max_eps=6,
-                test_ds_triplet_healthy_rul=120,
-                val_ds_mode="train",
-                val_ds_return_pairs=True,
-                val_ds_eps=3,
-                val_ds_max_eps=6,
-                val_ds_triplet_healthy_rul=120,
-                train_dl_batch_size=100,
-                train_dl_shuffle=True,
-                train_dl_num_workers=2,
-                test_dl_batch_size=100,
-                test_dl_shuffle=False,
-                test_dl_num_workers=2,
-                val_dl_batch_size=100,
-                val_dl_shuffle=True,
-                val_dl_num_workers=2
+                 dataset_name,
+                 max_rul,
+                 window_size,
+                 sensors,
+                 train_size,
+                 alpha,
+                 dir_path,
+                 train_ds_mode="train",
+                 train_ds_return_pairs=True,
+                 train_ds_eps=3,
+                 train_ds_max_eps=6,
+                 train_ds_triplet_healthy_rul=120,
+                 test_ds_mode="test",
+                 test_ds_return_pairs=False,
+                 test_ds_eps=3,
+                 test_ds_max_eps=6,
+                 test_ds_triplet_healthy_rul=120,
+                 val_ds_mode="train",
+                 val_ds_return_pairs=True,
+                 val_ds_eps=3,
+                 val_ds_max_eps=6,
+                 val_ds_triplet_healthy_rul=120,
+                 train_dl_batch_size=100,
+                 train_dl_shuffle=True,
+                 train_dl_num_workers=2,
+                 test_dl_batch_size=100,
+                 test_dl_shuffle=False,
+                 test_dl_num_workers=2,
+                 val_dl_batch_size=100,
+                 val_dl_shuffle=True,
+                 val_dl_num_workers=2
                  ):
 
         self.dataset_name = dataset_name
@@ -58,39 +63,51 @@ class MetricDataPreprocessor:
         self.dir_path = dir_path
         self.alpha = alpha
         self.scaler = {}
-        self.train_ds_kwargs = {}
-        self.test_ds_kwargs = {}
-        self.val_ds_kwargs = {}
-        self.train_dl_kwargs = {}
-        self.test_dl_kwargs = {}
-        self.val_dl_kwargs = {}
-        self.train_ds_kwargs["mode"]=train_ds_mode
-        self.train_ds_kwargs["return_pairs"]=train_ds_return_pairs
-        self.train_ds_kwargs["triplet_eps"]=train_ds_eps
-        self.train_ds_kwargs["triplet_max_eps"]=train_ds_max_eps
-        self.train_ds_kwargs["triplet_healthy_rul"]=train_ds_triplet_healthy_rul
-        self.test_ds_kwargs["mode"]=test_ds_mode
-        self.test_ds_kwargs["return_pairs"]=test_ds_return_pairs
-        self.test_ds_kwargs["triplet_eps"]=test_ds_eps
-        self.test_ds_kwargs["triplet_max_eps"]=test_ds_max_eps
-        self.test_ds_kwargs["triplet_healthy_rul"]=test_ds_triplet_healthy_rul
-        self.val_ds_kwargs["mode"]=val_ds_mode
-        self.val_ds_kwargs["return_pairs"]=val_ds_return_pairs
-        self.val_ds_kwargs["triplet_eps"]=val_ds_eps
-        self.val_ds_kwargs["triplet_max_eps"]=val_ds_max_eps
-        self.val_ds_kwargs["triplet_healthy_rul"]=val_ds_triplet_healthy_rul
-        self.train_dl_kwargs["batch_size"]=train_dl_batch_size
-        self.train_dl_kwargs["shuffle"]=train_dl_shuffle
-        self.train_dl_kwargs["num_workers"]=train_dl_num_workers
-        self.test_dl_kwargs["batch_size"]=test_dl_batch_size
-        self.test_dl_kwargs["shuffle"]=test_dl_shuffle
-        self.test_dl_kwargs["num_workers"]=test_dl_num_workers
-        self.val_dl_kwargs["batch_size"]=val_dl_batch_size
-        self.val_dl_kwargs["shuffle"]=val_dl_shuffle
-        self.val_dl_kwargs["num_workers"]=val_dl_num_workers
-
+        self.train_ds_kwargs = {
+            "mode": train_ds_mode,
+            "return_pairs": train_ds_return_pairs,
+            "triplet_eps": train_ds_eps,
+            "triplet_max_eps": train_ds_max_eps,
+            "triplet_healthy_rul": train_ds_triplet_healthy_rul
+        }
+        self.test_ds_kwargs = {
+            "mode": test_ds_mode,
+            "return_pairs": test_ds_return_pairs,
+            "triplet_eps": test_ds_eps,
+            "triplet_max_eps": test_ds_max_eps,
+            "triplet_healthy_rul": test_ds_triplet_healthy_rul
+        }
+        self.val_ds_kwargs = {
+            "mode": val_ds_mode,
+            "return_pairs": val_ds_return_pairs,
+            "triplet_eps": val_ds_eps,
+            "triplet_max_eps": val_ds_max_eps,
+            "triplet_healthy_rul": val_ds_triplet_healthy_rul
+        }
+        self.train_dl_kwargs = {
+            "batch_size": train_dl_batch_size,
+            "shuffle": train_dl_shuffle,
+            "num_workers": train_dl_num_workers
+        }
+        self.test_dl_kwargs = {
+            "batch_size": test_dl_batch_size,
+            "shuffle": test_dl_shuffle,
+            "num_workers": test_dl_num_workers
+        }
+        self.val_dl_kwargs = {
+            "batch_size": val_dl_batch_size,
+            "shuffle": val_dl_shuffle,
+            "num_workers": val_dl_num_workers
+        }
 
     def _get_rul(self, df, final_rul):
+        """
+        Groups dataset by unit_nr (run_id) and calculates RUL within each group.
+        In case of test dataset, where run stops not at RUL=0, final_rul is the RUL value of the last datapoint in group
+        :param df: DataFrame
+        :param final_rul: int
+        :return: DataFrame
+        """
         # Get the total number of cycles for each unit
         grouped_by_unit = df.groupby(by="unit_nr")
         max_cycle = grouped_by_unit["time_cycles"].max() + final_rul
@@ -108,9 +125,19 @@ class MetricDataPreprocessor:
         return result_frame
 
     def _exponential_smoothing(self, df, sensors, n_samples, alpha=0.4):
+        """
+        Performs exponential smoothing of the input data
+        via https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.ewm.html
+        If alpha = 1, no smoothing will be applied.
+        :param df: DataFrame
+        :param sensors: number of sensor features, int
+        :param n_samples:
+        :param alpha: smoothing factor [0, 1]
+        :return: DataFrame
+        """
         df = df.copy()
         # first, take the exponential weighted mean
-  
+
         df[sensors] = df.groupby('unit_nr', group_keys=True)[sensors].apply(
             lambda x: x.ewm(alpha=alpha).mean()).reset_index(level=0, drop=True)
 
@@ -125,18 +152,28 @@ class MetricDataPreprocessor:
         return df
 
     def _add_operating_condition(self, df):
+        """
+        Joins 2 setting columns in one string which uniquely identifies the operational settings
+        :param df: DataFrame
+        :return: DataFrame
+        """
         df_op_cond = df.copy()
 
         df_op_cond['setting_1'] = abs(df_op_cond['setting_1'].round())
         df_op_cond['setting_2'] = abs(df_op_cond['setting_2'].round(decimals=2))
 
-        # converting settings to string and concatanating makes the operating condition into a categorical variable
-        df_op_cond['op_cond'] = df_op_cond['setting_1'].astype(str) + '_' + \
-                                df_op_cond['setting_2'].astype(str) + '_' + \
-                                df_op_cond['setting_3'].astype(str)
+        # converting settings to string and concatenating makes the operating condition into a categorical variable
+        df_op_cond['op_cond'] = df_op_cond['setting_1'].astype(str) + '_' \
+                                + df_op_cond['setting_2'].astype(str) + '_' \
+                                + df_op_cond['setting_3'].astype(str)
         return df_op_cond
 
     def _condition_scaler(self, df):
+        """
+        Applies Scaler for each operational condition separately.
+        :param df: DataFrame
+        :return: DataFrame
+        """
         # apply operating condition specific scaling
         sensor_names = self.sensors
 
@@ -145,8 +182,8 @@ class MetricDataPreprocessor:
 
         for condition in df['op_cond'].unique():
             scaler = self.scaler.get(condition, StandardScaler())
+            # Check if the Scaler for this condition is fitted and fit if it is not:
             if not is_fit_called(scaler):
-                #print(f"Fit scaler on: {condition}")
                 scaler.fit(df.loc[df['op_cond'] == condition, sensor_names])
                 self.scaler[condition] = scaler
             df.loc[df['op_cond'] == condition, sensor_names] = scaler.transform(
@@ -154,6 +191,10 @@ class MetricDataPreprocessor:
         return df
 
     def _load_data(self):
+        """
+        Loading data from csv files.
+        :return: Train, Test, Validation DataFrames
+        """
         dir_path = self.dir_path
         dataset_name = self.dataset_name
         max_rul = self.max_rul
@@ -197,7 +238,7 @@ class MetricDataPreprocessor:
         train = self._condition_scaler(train)
         x_test = self._condition_scaler(test)
 
-        #Val split:
+        # Validation split:
         gss = GroupShuffleSplit(n_splits=1, train_size=self.train_size, random_state=42)
         train_unit, val_unit = next(gss.split(train['unit_nr'].unique(), groups=train['unit_nr'].unique()))
         x_train = train[train['unit_nr'].isin(train_unit)]
@@ -206,15 +247,22 @@ class MetricDataPreprocessor:
         return x_train, x_test, x_val
 
     def get_datasets(self):
+        """
+        Calls data loading method and return 3 DataSets.
+        :return: Train, Test, Validation Datasets
+        """
         dataset_kwargs = {"max_rul": self.max_rul, "window_size": self.window_size, "sensors": self.sensors}
         train_df, test_df, val_df = self._load_data()
         train_dataset = MetricDataset(dataset=train_df, **dataset_kwargs, **self.train_ds_kwargs)
         test_dataset = MetricDataset(dataset=test_df, **dataset_kwargs, **self.test_ds_kwargs)
         val_dataset = MetricDataset(dataset=val_df, **dataset_kwargs, **self.val_ds_kwargs)
         return train_dataset, test_dataset, val_dataset
-    
-    def get_dataloaders(self):
 
+    def get_dataloaders(self):
+        """
+        Calls dataset generation method and return 3 DataSets.
+        :return: Train, Test, Validation DataLoaders
+        """
         train_dataset, test_dataset, val_dataset = self.get_datasets()
         train_loader = DataLoader(dataset=train_dataset, **self.train_dl_kwargs)
         test_loader = DataLoader(dataset=test_dataset, **self.test_dl_kwargs)
@@ -225,7 +273,7 @@ class MetricDataPreprocessor:
 class MetricDataset(Dataset):
     def __init__(self,
                  dataset,
-                 mode, 
+                 mode,
                  max_rul,
                  window_size,
                  sensors,
@@ -234,19 +282,7 @@ class MetricDataset(Dataset):
                  triplet_max_eps,
                  triplet_healthy_rul
                  ):
-        """
-        TODO: change docstring
-        Dateset class, performs data preprocessing: normalization, sliding window slicing,
-        handcrafted feature extraction, redundant features dropping
-        :param data_path: string, path to data file
-        :param mode: string, "train" or "test"
-        :param rul_path: string, path to the RUL data file
-        :param max_rul: int, maximal RUL, value at which RUL becomes constant
-        :param window_size: int, width of sliding window
-        :param standardize: bool, if set data will be standardized
-        :param handcrafted: bool, if set handcrafted features will be extracted
-        :param drop_features: list, list of feature indices to be dropped
-        """
+
         self.return_pairs = return_pairs
         self.eps = triplet_eps
         self.max_eps = triplet_max_eps
@@ -267,8 +303,12 @@ class MetricDataset(Dataset):
 
         self.get_sequences(self.df)
 
-
     def get_sequences(self, df):
+        """
+        Splits each engine run into moving window slices
+        If the length of engine run is less than window size, the data will be padded
+        :param df: DataFrame
+        """
         window_size = self.window_size
         sensors = self.sensors
         columns_to_pick = ["unit_nr"] + sensors + ["RUL"]
@@ -286,57 +326,73 @@ class MetricDataset(Dataset):
                 else:
                     temp_sequences.append(unit_slice[slice_len - window_size:])
             else:
-                #if self.mode == "train":
-           	# row number < sequence length, only one sequence
-            	# pad width first time-cycle value
+                # if self.mode == "train":
+                # row number < sequence length, only one sequence
+                # pad width first time-cycle value
                 temp_sequences.append(np.pad(unit_slice, ((window_size - slice_len, 0), (0, 0)), 'edge'))
             data = np.stack(temp_sequences)
-            
+
         self.sequences = data[:, :, 1:-1]
         self.targets = data[:, -1, -1]
         self.run_id = data[:, 0, 0]
-    
 
     def __getitem__(self, index):
+        """
+
+        :param index:
+        :return:
+        """
         if self.return_pairs:
             return self.get_triplet(index)
         return torch.FloatTensor(self.sequences[index]), torch.FloatTensor([self.targets[index]])
 
-
     def get_triplet(self, index):
+        """
+
+        :param index:
+        :return:
+        """
         run_id = self.run_id[index]
         rul = self.targets[index]
         x, y = torch.FloatTensor(self.sequences[index]), torch.FloatTensor([self.targets[index]])
         pos_x, pos_y = self.get_positive_sample(run_id, rul)
         neg_x, neg_y = self.get_negative_sample(run_id, rul)
 
-        return x, pos_x, neg_x, y, pos_y,neg_y
-
+        return x, pos_x, neg_x, y, pos_y, neg_y
 
     def __len__(self):
+        """
+
+        :return:
+        """
         return len(self.sequences)
-    
 
     def get_positive_sample(self, run_id, rul):
         """ Выбирается точка из траектории с run_id по маске на основе расстояния RUL точки от RUL потенциального позитивного примера не более eps """
         if rul >= self.healthy_rul:
             mask = (self.targets >= self.healthy_rul) & (self.run_id == run_id)
-        else: 
+        else:
             mask = (abs(self.targets - rul) <= self.eps) & (self.run_id == run_id)
         mask_indexes = np.flatnonzero(mask)
         idx = random.choice(mask_indexes)
         return torch.FloatTensor(self.sequences[idx]), torch.FloatTensor([self.targets[idx]])
-    
 
     def get_negative_sample(self, run_id, rul):
+        """
+
+        :param run_id:
+        :param rul:
+        :return:
+        """
         if rul >= self.healthy_rul:
-            mask = ( self.targets >= self.healthy_rul - self.eps) & (self.targets < self.healthy_rul) & (self.run_id == run_id)
-        else: 
-            mask = (abs(self.targets - rul) <= self.max_eps) & (abs(self.targets - rul) >= self.eps) & (self.run_id == run_id)
+            mask = (self.targets >= self.healthy_rul - self.eps) & (self.targets < self.healthy_rul) & (
+                    self.run_id == run_id)
+        else:
+            mask = (abs(self.targets - rul) <= self.max_eps) & (abs(self.targets - rul) >= self.eps) & (
+                    self.run_id == run_id)
         indexes = np.flatnonzero(mask)
         idx = random.choice(indexes)
         return torch.FloatTensor(self.sequences[idx]), torch.FloatTensor([self.targets[idx]])
-
 
     def get_run(self, run_id):
         mask = self.run_id == run_id
@@ -355,7 +411,8 @@ def main(config):
     print()
     print("conf:", config.data_preprocessor)
     print()
-    print("keys.preprocessor",config.data_preprocessor.sensors, type(config.data_preprocessor.sensors), config.data_preprocessor.sensors[0])
+    print("keys.preprocessor", config.data_preprocessor.sensors, type(config.data_preprocessor.sensors),
+          config.data_preprocessor.sensors[0])
     print()
     print(type(config.data_preprocessor.sensors) != list)
     print()
@@ -366,7 +423,6 @@ def main(config):
     train_loader, test_loader, val_loader = preproc.get_dataloaders()
     x, pos_x, neg_x, y, pos_y, neg_y = next(iter(train_loader))
     print(f"x shape: {x.shape} y shape: {y.shape} {pos_x.shape}{pos_y.shape}{neg_y.shape}{neg_y.shape}")
-   
 
 
 if __name__ == "__main__":

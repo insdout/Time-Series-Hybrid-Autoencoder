@@ -1,5 +1,5 @@
 checkpoint: 
-  path: "./outputs/2023-04-07/13-07-51/rve_model.pt"
+  path: "./outputs/2023-04-14/02-35-15_potential/rve_model.pt"
 only_healthy: False
 healthy_rul_treshold: ${finetuner.tuner.metric_rul_threshold}
 total_loss:
@@ -17,9 +17,9 @@ RegLoss:
   z_dims: False
 TripletLoss:
   _target_: loss.TripletLoss
-  weight: 1
+  weight: 10
   z_dims: False
-  margin: 1
+  margin: 0.4
   p: 2
 KLLoss:
   _target_: loss.KLLoss
@@ -35,5 +35,5 @@ tuner:
   verbose: False
 optimizer:
   _target_: "torch.optim.AdamW"
-  lr: 0.0005
-  weight_decay: 0.01
+  lr: 0.001
+  weight_decay: 0.001

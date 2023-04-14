@@ -3,7 +3,7 @@ import torch.nn as nn
 
 
 class Encoder(nn.Module):
-    def __init__(self, input_size, hidden_size, latent_dim, dropout=0, num_layers=1, bidirectional=True):
+    def __init__(self, input_size, hidden_size, latent_dim, dropout_lstm, dropout=0, num_layers=1, bidirectional=True):
         super(Encoder, self).__init__()
         self.input_size = input_size
         self.hidden_size = hidden_size
@@ -11,12 +11,14 @@ class Encoder(nn.Module):
         self.num_layers = num_layers
         self.bidirectional = bidirectional
         self.num_directions = 2 if self.bidirectional else 1
+        self.p_lstm = dropout_lstm
         self.p = dropout
 
         self.lstm = nn.LSTM(
             input_size=input_size,
             hidden_size=hidden_size,
             num_layers=num_layers,
+            dropout=self.p_lstm,
             batch_first=True,
             bidirectional=self.bidirectional
         )
@@ -62,6 +64,8 @@ class Decoder(nn.Module):
                  hidden_size,
                  latent_dim,
                  window_size,
+                 dropout_lstm,
+                 dropout_layer,
                  num_layers=1,
                  bidirectional=True
                  ):
@@ -72,15 +76,20 @@ class Decoder(nn.Module):
         self.num_layers = num_layers
         self.bidirectional = bidirectional
         self.window_size = window_size
+        self.p_lstm = dropout_lstm
+        self.p_dropout_layer = dropout_layer
         self.num_directions = 2 if self.bidirectional else 1
 
         self.lstm_to_hidden = nn.LSTM(
             input_size=latent_dim,
             hidden_size=hidden_size,
             num_layers=num_layers,
+            dropout=self.p_lstm,
             batch_first=True,
             bidirectional=self.bidirectional
         )
+        self.dropout_layer = nn.Dropout(self.p_dropout_layer)
+
         self.lstm_to_output = nn.LSTM(
             input_size=self.num_directions * hidden_size,
             hidden_size=input_size,
@@ -90,25 +99,27 @@ class Decoder(nn.Module):
     def forward(self, z):
         latent_z = z.unsqueeze(1).repeat(1, self.window_size, 1)
         out, _ = self.lstm_to_hidden(latent_z)
+        out = self.dropout_layer(out)
         out, _ = self.lstm_to_output(out)
         return out
 
 
 class RVE(nn.Module):
 
-    def __init__(self, encoder, decoder=None, reconstruct=False, dropout=0):
+    def __init__(self, encoder, decoder=None, reconstruct=False, dropout_regressor=0, regression_dims=200):
         super(RVE, self).__init__()
         self.decode_mode = reconstruct
         if self.decode_mode:
             assert isinstance(decoder, nn.Module), "You should to pass a valid decoder"
             self.decoder = decoder
         self.encoder = encoder
-        self.p = dropout
+        self.p = dropout_regressor
+        self.regression_dims = regression_dims
         self.regressor = nn.Sequential(
-            nn.Linear(self.encoder.latent_dim, 200),
+            nn.Linear(self.encoder.latent_dim, self.regression_dims),
             nn.Tanh(),
             nn.Dropout(self.p),
-            nn.Linear(200, 1)
+            nn.Linear(self.regression_dims, 1)
         )
 
     def forward(self, x):
@@ -120,6 +131,49 @@ class RVE(nn.Module):
 
         return y_hat, z, mean, log_var
 
+
+class RVEAttention(nn.Module):
+
+    def __init__(self, encoder, attention_embed_dim, attention_num_heads, attention_dropout, decoder=None, reconstruct=False, dropout_regressor=0, regression_dims=200):
+        super(RVEAttention, self).__init__()
+        self.decode_mode = reconstruct
+        if self.decode_mode:
+            assert isinstance(decoder, nn.Module), "You should to pass a valid decoder"
+            self.decoder = decoder
+        self.encoder = encoder
+        self.p = dropout_regressor
+        self.regression_dims = regression_dims
+        self.self_attention = nn.MultiheadAttention(embed_dim=attention_embed_dim, num_heads=attention_num_heads, dropout=attention_dropout, batch_first=True)
+        self.regressor = nn.Sequential(
+            nn.Linear(self.encoder.latent_dim, self.regression_dims),
+            nn.Tanh(),
+            nn.Dropout(self.p),
+            nn.Linear(self.regression_dims, 1)
+        )
+
+    def forward(self, x):
+        '''
+        self attention input_size dims: N, L, E, 
+        where   N batch size 
+                L is the target sequence length,
+                E is the query embedding dimension embed_dim
+        x input_size: N, L, F,
+        where   N batch size 
+                L is window size,
+                E number of sensors
+        For featurewise attention x should be transposed: (N, E, L)
+        '''
+        x = torch.permute(x, (0, 2, 1))
+        x, _ = self.self_attention(x, x, x)
+        x = torch.permute(x, (0, 2, 1))
+        z, mean, log_var = self.encoder(x)
+        y_hat = self.regressor(z)
+        if self.decode_mode:
+            x_hat = self.decoder(z)
+            return y_hat, z, mean, log_var, x_hat
+
+        return y_hat, z, mean, log_var
+    
 
 class SimpleRVE(nn.Module):
     def __init__(self, input_size, hidden_size, bidirectional=False, dropout=0, num_layers=1):

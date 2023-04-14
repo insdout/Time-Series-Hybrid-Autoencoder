@@ -1,5 +1,5 @@
     validate: True
     save_model: True
     save_history: True
-    n_epochs: 15
+    n_epochs: 35
     verbose: True
