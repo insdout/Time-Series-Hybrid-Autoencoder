@@ -21,8 +21,9 @@ rve:
   _target_: models.RVEAttention_MH
   attention_embed_dim: ${data_preprocessor.window_size}
   attention_num_heads: 2
-  attention_dropout: 0.5
+  attention_dropout: 0.8
   batchnorm_dim: ${model.encoder.input_size}
+  batchnorm_affine: False
   reconstruct: True
   dropout_regressor: 0.8
   regression_dims: 100

@@ -22,6 +22,7 @@ rve:
   attention_values_embedding: ${data_preprocessor.window_size}
   attention_queries_embedding: ${data_preprocessor.window_size}
   batchnorm_dim: ${model.encoder.input_size}
+  batchnorm_affine: False
   reconstruct: True
   dropout_regressor: 0.8
   regression_dims: 100

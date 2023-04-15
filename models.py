@@ -151,7 +151,7 @@ class RVEAttention_MH(nn.Module):
     RVE Model with MultiHead attention.
     """
 
-    def __init__(self,  encoder, attention_embed_dim, batchnorm_dim, attention_num_heads, attention_dropout, decoder=None,
+    def __init__(self,  encoder, attention_embed_dim, batchnorm_dim, batchnorm_affine, attention_num_heads, attention_dropout, decoder=None,
                  reconstruct=False, dropout_regressor=0, regression_dims=200):
         super(RVEAttention_MH, self).__init__()
         self.decode_mode = reconstruct
@@ -163,7 +163,7 @@ class RVEAttention_MH(nn.Module):
         self.regression_dims = regression_dims
         self.self_attention = nn.MultiheadAttention(embed_dim=attention_embed_dim, num_heads=attention_num_heads,
                                                     dropout=attention_dropout, batch_first=True)
-        self.batchnorm = nn.BatchNorm1d(batchnorm_dim)
+        self.batchnorm = nn.BatchNorm1d(batchnorm_dim, affine=batchnorm_affine)
   
         self.regressor = nn.Sequential(
             nn.Linear(self.encoder.latent_dim, self.regression_dims),
@@ -185,7 +185,8 @@ class RVEAttention_MH(nn.Module):
         For feature-wise attention x should be transposed: (N, E, L)
         """
         x = torch.permute(x, (0, 2, 1))
-        x, _ = self.self_attention(x, x, x)
+        x_attn, _ = self.self_attention(x, x, x)
+        x = x + x_attn
         x = self.batchnorm(x)
         x = torch.permute(x, (0, 2, 1))
         
@@ -222,7 +223,7 @@ class RVEAttention_MP(nn.Module):
     """
     RVE Model with Multiplicative attention.
     """
-    def __init__(self,  encoder, attention_values_embedding, batchnorm_dim, attention_queries_embedding, decoder=None,
+    def __init__(self,  encoder, attention_values_embedding, batchnorm_dim, batchnorm_affine, attention_queries_embedding, decoder=None,
                  reconstruct=False, dropout_regressor=0, regression_dims=200):
         super(RVEAttention_MP, self).__init__()
         self.decode_mode = reconstruct
@@ -233,7 +234,7 @@ class RVEAttention_MP(nn.Module):
         self.p = dropout_regressor
         self.regression_dims = regression_dims
         self.self_attention = MultiplicativeAttention(values_embedding=attention_values_embedding, queries_embedding=attention_queries_embedding)
-        self.batchnorm = nn.BatchNorm1d(batchnorm_dim, affine=False)
+        self.batchnorm = nn.BatchNorm1d(batchnorm_dim, affine=batchnorm_affine)
   
         self.regressor = nn.Sequential(
             nn.Linear(self.encoder.latent_dim, self.regression_dims),
