@@ -2,11 +2,11 @@ import torch.nn as nn
 import torch
 import torch.nn.functional as F
 
-import logging
 from hydra.utils import instantiate
 import hydra
 
-class KLLoss():
+
+class KLLoss:
     def __init__(self, weight, z_dims):
         self.name = "KLLoss"
         self.weight = weight
@@ -20,7 +20,7 @@ class KLLoss():
         return loss
 
 
-class RegLoss():
+class RegLoss:
     def __init__(self, weight, z_dims):
         self.name = "RegLoss"
         self.weight = weight
@@ -33,7 +33,7 @@ class RegLoss():
         return self.criterion(y, y_hat)
 
 
-class ReconLoss():
+class ReconLoss:
     def __init__(self, weight, z_dims):
         self.name = "ReconLoss"
         self.weight = weight
@@ -47,7 +47,7 @@ class ReconLoss():
         return loss
 
 
-class TripletLoss():
+class TripletLoss:
     def __init__(self,  weight, z_dims, margin, p):
         self.name = "TripletLoss"
         self.weight = weight
@@ -62,8 +62,7 @@ class TripletLoss():
         return self.criterion(z, z_pos, z_neg)
 
 
-
-class TotalLoss():
+class TotalLoss:
     def __init__(self, conf_file):
         self.losses = [instantiate(conf_file.loss[loss_name]) for loss_name in conf_file.loss.total_loss]
         self.weights = [loss.weight for loss in self.losses]
@@ -87,13 +86,14 @@ class TotalLoss():
             else:
                 raise Exception(f"No such loss: {name}")
         return losses_dict
-    
-class FineTuneTotalLoss():
+
+
+class FineTuneTotalLoss:
     def __init__(self, conf_file):
         self.losses = [instantiate(conf_file[loss_name]) for loss_name in conf_file.total_loss]
         self.weights = [loss.weight for loss in self.losses]
         self.only_healthy_rul = conf_file["only_healthy"]
-        self.healthy_rul_treshold = conf_file["healthy_rul_treshold"]
+        self.healthy_rul_threshold = conf_file["healthy_rul_threshold"]
     
     def __call__(self, mean=None, log_var=None, y=None, y_hat=None, x=None, x_hat=None, z=None, z_pos=None, z_neg=None):
         losses_dict = {"TotalLoss": 0}
@@ -109,16 +109,18 @@ class FineTuneTotalLoss():
                 losses_dict[name] = loss(x, x_hat)*loss.weight
                 losses_dict["TotalLoss"] += losses_dict[name]
             elif name == "TripletLoss":
+
+                # Apply Triplet Loss only for healthy RUL:
                 if self.only_healthy_rul:
-                    loss_mask = y < self.healthy_rul_treshold
+                    loss_mask = y < self.healthy_rul_threshold
                     loss_mask = loss_mask.squeeze()
                    
                     if sum(loss_mask) > 0:
                        
-                        losses_dict[name] = loss(z[loss_mask,:], z_pos[loss_mask,:], z_neg[loss_mask,:])*loss.weight
+                        losses_dict[name] = loss(z[loss_mask, :], z_pos[loss_mask, :], z_neg[loss_mask, :])*loss.weight
                         losses_dict["TotalLoss"] += losses_dict[name]
                     else:
-                        losses_dict[name] =torch.FloatTensor([0])
+                        losses_dict[name] = torch.FloatTensor([0])
                         
                 else:
                     losses_dict[name] = loss(z, z_pos, z_neg)*loss.weight

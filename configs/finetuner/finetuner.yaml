@@ -1,7 +1,7 @@
 checkpoint: 
   path: "./outputs/2023-04-14/02-35-15_potential/rve_model.pt"
 only_healthy: False
-healthy_rul_treshold: ${finetuner.tuner.metric_rul_threshold}
+healthy_rul_threshold: ${finetuner.tuner.metric_rul_threshold}
 total_loss:
   - ReconLoss
   - RegLoss

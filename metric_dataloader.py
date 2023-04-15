@@ -102,7 +102,7 @@ class MetricDataPreprocessor:
 
     def _get_rul(self, df, final_rul):
         """
-        Groups dataset by unit_nr (run_id) and calculates RUL within each group.
+        Groups dataset by unit_nr (unit number) and calculates RUL within each group.
         In case of test dataset, where run stops not at RUL=0, final_rul is the RUL value of the last datapoint in group
         :param df: DataFrame
         :param final_rul: int
@@ -338,9 +338,11 @@ class MetricDataset(Dataset):
 
     def __getitem__(self, index):
         """
-
-        :param index:
-        :return:
+        Returns sliding window datapoint and target at given index. If option return_pairs is True,
+        3 datapoints will be returned for Triplet loss (datapoint at given index: anchor, positive and negative
+        datapoint.
+        :param index: index of datapoint to be returned, int
+        :return: 2 or 6 torch.FloatTensors
         """
         if self.return_pairs:
             return self.get_triplet(index)
@@ -348,9 +350,9 @@ class MetricDataset(Dataset):
 
     def get_triplet(self, index):
         """
-
-        :param index:
-        :return:
+        Returns datapoint at given index (Anchor), positive and negative datapoints
+        :param index: index of datapoint to be returned, int
+        :return: 6 torch.FloatTensors
         """
         run_id = self.run_id[index]
         rul = self.targets[index]
@@ -362,39 +364,56 @@ class MetricDataset(Dataset):
 
     def __len__(self):
         """
-
-        :return:
+        Returns length of the dataset.
+        :return: int
         """
         return len(self.sequences)
 
     def get_positive_sample(self, run_id, rul):
-        """ Выбирается точка из траектории с run_id по маске на основе расстояния RUL точки от RUL потенциального позитивного примера не более eps """
+        """
+        Selects positive datapoint within datapoints of the current unit number, which satisfy condition:
+        RUL of datapoint is within +/- eps from RUL of the RUL of the given datapoint
+        :param run_id: unit number of provided datapoint
+        :param rul: RUL of provided datapoint
+        :return: 2 torch.FloatTensors
+        """
         if rul >= self.healthy_rul:
-            mask = (self.targets >= self.healthy_rul) & (self.run_id == run_id)
+            candidate_point_mask = (self.targets >= self.healthy_rul) & (self.run_id == run_id)
         else:
-            mask = (abs(self.targets - rul) <= self.eps) & (self.run_id == run_id)
-        mask_indexes = np.flatnonzero(mask)
-        idx = random.choice(mask_indexes)
+            candidate_point_mask = (abs(self.targets - rul) <= self.eps) & (self.run_id == run_id)
+        candidate_point_mask_indexes = np.flatnonzero(candidate_point_mask)
+        idx = random.choice(candidate_point_mask_indexes)
         return torch.FloatTensor(self.sequences[idx]), torch.FloatTensor([self.targets[idx]])
 
     def get_negative_sample(self, run_id, rul):
         """
-
-        :param run_id:
-        :param rul:
-        :return:
+        Selects negative datapoint within datapoints of the current unit number, which satisfy condition:
+            RUL of datapoint is further than +/- eps
+            AND
+            RUL of datapoint is within +/- max_eps
+        from RUL of the given datapoint
+        :param run_id: unit number of provided datapoint
+        :param rul: RUL of provided datapoint
+        :return: 2 torch.FloatTensors
         """
         if rul >= self.healthy_rul:
-            mask = (self.targets >= self.healthy_rul - self.eps) & (self.targets < self.healthy_rul) & (
-                    self.run_id == run_id)
+            candidate_point_mask = (self.targets >= self.healthy_rul - self.eps) \
+                                   & (self.targets < self.healthy_rul) & \
+                                   (self.run_id == run_id)
         else:
-            mask = (abs(self.targets - rul) <= self.max_eps) & (abs(self.targets - rul) >= self.eps) & (
-                    self.run_id == run_id)
-        indexes = np.flatnonzero(mask)
-        idx = random.choice(indexes)
+            candidate_point_mask = (abs(self.targets - rul) <= self.max_eps) \
+                                   & (abs(self.targets - rul) >= self.eps) & \
+                                   (self.run_id == run_id)
+        candidate_point_mask_indexes = np.flatnonzero(candidate_point_mask)
+        idx = random.choice(candidate_point_mask_indexes)
         return torch.FloatTensor(self.sequences[idx]), torch.FloatTensor([self.targets[idx]])
 
     def get_run(self, run_id):
+        """
+        Returns all datapoints within given unit number (run_id)
+        :param run_id: unit number
+        :return:  2 torch.FloatTensors
+        """
         mask = self.run_id == run_id
         return torch.FloatTensor(self.sequences[mask]), torch.FloatTensor(self.targets[mask])
 

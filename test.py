@@ -1,23 +1,24 @@
-import os, os.path
+import os
+import os.path
 import numpy as np
 import torch
 import torch.nn as nn
 import matplotlib.pyplot as plt
 from collections import defaultdict
-import random
 
-import hydra 
-from omegaconf import DictConfig, OmegaConf
+import hydra
 
-"""""
-with safe_open_w('/Users/bill/output/output-text.txt') as f:
-    f.write(...)
-"""
 
-class Tester():
+class Tester:
 
     @staticmethod
     def score(y, y_hat):
+        """
+        Computes score according to original CMAPSS dataset paper.
+        :param y: true RUL
+        :param y_hat: predicted RUL
+        :return: float
+        """
         score = 0
         y = y.cpu()
         y_hat = y_hat.cpu()
@@ -40,8 +41,11 @@ class Tester():
         self.path = path
         self.engine_history = self.get_engine_runs()
 
-
     def get_test_score(self):
+        """
+        Calculates score and RMSE on test dataset
+        :return: score and RMSE, int
+        """
         rmse = 0
         score = 0
         self.model.eval()
@@ -62,11 +66,15 @@ class Tester():
         return score, rmse
 
     def get_z(self):
+        """
+        Calculates latent space (z), true RUL and predicted RUL for validation dataset
+        :return: 3 np.arrays
+        """
         self.model.eval()
         self.model.to('cpu')
         z_space = []
-        target = []
-        predicted_y = []
+        true_rul = []
+        predicted_rul = []
         with torch.no_grad():
             for batch_idx, data in enumerate(self.val_loader):
                 batch_len = len(self.val_loader.dataset)
@@ -76,7 +84,6 @@ class Tester():
                     x, pos_x, neg_x, y, _, _ = data
 
                     y_hat, z, mean, log_var, x_hat = self.model(x)
-                   
 
                 else:
                     x, y = data
@@ -84,15 +91,21 @@ class Tester():
                     y_hat, z, mean, log_var, x_hat = self.model(x)
                    
                 z_space.append(z.numpy())
-                target.append(y.numpy())
-                predicted_y.append(y_hat.numpy())
-        return np.concatenate(z_space), np.concatenate(target), np.concatenate(predicted_y)
+                true_rul.append(y.numpy())
+                predicted_rul.append(y_hat.numpy())
+        return np.concatenate(z_space), np.concatenate(true_rul), np.concatenate(predicted_rul)
 
     def viz_latent_space(self, title='Final', save=True, show=True):
+        """
+        Plots latent space.
+        :param title: Title of the plot, str
+        :param save: whether to save the plot or not
+        :param show: whether to show the plot or not
+        """
         z = self.z
         targets = self.y
         plt.figure(figsize=(8, 4))
-        if len(targets)>0:
+        if len(targets) > 0:
             plt.scatter(z[:, 0], z[:, 1], c=targets, s=1.5)
         else:
             plt.scatter(z[:, 0], z[:, 1])
@@ -101,13 +114,17 @@ class Tester():
         plt.colorbar()
         plt.title(title)
         if save:
-            img_path = self.path+'/images/'
+            img_path = self.path + '/images/'
             os.makedirs(os.path.dirname(img_path), exist_ok=True)
-            plt.savefig(img_path +'latent_space_epoch'+str(title)+'.png')
+            plt.savefig(img_path + 'latent_space_epoch' + str(title) + '.png')
         if show:
             plt.show()
 
     def get_engine_runs(self):
+        """
+        Performs inference for each engine_id (unit number) run from validation dataset
+        :return: dictionary with true RUL, predicted RUL and latent spase vector z for each engine_id, dict
+        """
         engine_ids = self.val_loader.dataset.ids
         history = defaultdict(dict)
         self.model.eval().to('cpu')
@@ -123,6 +140,12 @@ class Tester():
         return history
     
     def plot_engine_run(self, title="engine_run", save=True, show=False):
+        """
+        Plots each engine_id (unit number) trajectory over whole latent space of validation dataset.
+        :param title: Title of the plot, str
+        :param save: whether to save the plot or not
+        :param show: whether to show the plot or not
+        """
         history = self.engine_history
         engine_ids = history.keys()
 
@@ -159,12 +182,17 @@ class Tester():
                 plt.show()
 
     def test(self):
+        """
+        Calls latent space visualization function and engine_run plot function.
+        """
         self.viz_latent_space()
         self.plot_engine_run()
 
     def safe_open_w(self, path):
         ''' 
         Open "path" for writing, creating any parent directories as needed.
+        :param path:
+        :return: object
         '''
         os.makedirs(os.path.dirname(path), exist_ok=True)
         return open(path, 'w')
@@ -185,7 +213,6 @@ def main(config):
     print(tester.get_test_score())
     tester.test()
 
-   
 
 if __name__ == "__main__":
     main()
