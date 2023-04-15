@@ -147,6 +147,9 @@ class RVE(nn.Module):
 
 
 class RVEAttention_MH(nn.Module):
+    """
+    RVE Model with MultiHead attention.
+    """
 
     def __init__(self,  encoder, attention_embed_dim, attention_num_heads, attention_dropout, decoder=None,
                  reconstruct=False, dropout_regressor=0, regression_dims=200):
@@ -215,7 +218,9 @@ class MultiplicativeAttention(nn.Module):
     
 
 class RVEAttention_MP(nn.Module):
-
+    """
+    RVE Model with Multiplicative attention.
+    """
     def __init__(self,  encoder, attention_values_embedding, attention_queries_embedding, decoder=None,
                  reconstruct=False, dropout_regressor=0, regression_dims=200):
         super(RVEAttention_MP, self).__init__()
