@@ -1,0 +1,37 @@
+  dataset_name: "FD003"
+  max_rul: 125
+  window_size: 30
+  sensors: ['s_1', 's_2', 's_3', 's_4', 's_5', 's_6', 's_7', 's_8', 's_9', 's_10', 's_11', 's_12', 's_13', 's_14', 's_15', 's_16', 's_17', 's_18', 's_19', 's_20', 's_21']
+  train_size: 0.8
+  alpha: 1
+  dir_path: './CMAPSSData/'
+
+  train_ds_mode: "train"
+  train_ds_return_pairs: True
+  train_ds_eps: 2
+  train_ds_max_eps: 10
+  train_ds_triplet_healthy_rul: 120
+
+  test_ds_mode: "test"
+  test_ds_return_pairs: False
+  test_ds_eps: 2
+  test_ds_max_eps: 10
+  test_ds_triplet_healthy_rul: 120
+
+  val_ds_mode: "train"
+  val_ds_return_pairs: True
+  val_ds_eps: 2
+  val_ds_max_eps: 10
+  val_ds_triplet_healthy_rul: 120
+
+  train_dl_batch_size: 150
+  train_dl_shuffle: True 
+  train_dl_num_workers: 2
+
+  test_dl_batch_size: 150
+  test_dl_shuffle: False 
+  test_dl_num_workers: 2
+
+  val_dl_batch_size: 150
+  val_dl_shuffle: True 
+  val_dl_num_workers: 2

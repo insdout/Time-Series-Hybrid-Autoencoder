@@ -1,5 +1,7 @@
 import torch
 import torch.nn as nn
+import numpy as np
+from hydra.utils import instantiate
 
 
 class Encoder(nn.Module):
@@ -143,11 +145,12 @@ class RVE(nn.Module):
         return y_hat, z, mean, log_var
 
 
-class RVEAttention(nn.Module):
 
-    def __init__(self, encoder, attention_embed_dim, attention_num_heads, attention_dropout, decoder=None,
+class RVEAttention_MH(nn.Module):
+
+    def __init__(self,  encoder, attention_embed_dim, attention_num_heads, attention_dropout, decoder=None,
                  reconstruct=False, dropout_regressor=0, regression_dims=200):
-        super(RVEAttention, self).__init__()
+        super(RVEAttention_MH, self).__init__()
         self.decode_mode = reconstruct
         if self.decode_mode:
             assert isinstance(decoder, nn.Module), "You should to pass a valid decoder"
@@ -157,6 +160,8 @@ class RVEAttention(nn.Module):
         self.regression_dims = regression_dims
         self.self_attention = nn.MultiheadAttention(embed_dim=attention_embed_dim, num_heads=attention_num_heads,
                                                     dropout=attention_dropout, batch_first=True)
+        self.batchnorm = nn.BatchNorm1d(attention_embed_dim)
+  
         self.regressor = nn.Sequential(
             nn.Linear(self.encoder.latent_dim, self.regression_dims),
             nn.Tanh(),
@@ -179,6 +184,7 @@ class RVEAttention(nn.Module):
         x = torch.permute(x, (0, 2, 1))
         x, _ = self.self_attention(x, x, x)
         x = torch.permute(x, (0, 2, 1))
+        x = self.batchnorm(x)
         z, mean, log_var = self.encoder(x)
         y_hat = self.regressor(z)
         if self.decode_mode:
@@ -187,3 +193,69 @@ class RVEAttention(nn.Module):
 
         return y_hat, z, mean, log_var
 
+
+class MultiplicativeAttention(nn.Module):
+
+    def __init__(self, values_embedding, queries_embedding):
+        super().__init__()
+        self.values_embedding = values_embedding
+        self.queries_embedding = queries_embedding
+        self.W = torch.nn.Parameter(torch.FloatTensor(
+            self.queries_embedding, self.values_embedding).uniform_(-0.1, 0.1), requires_grad=True)
+
+    def forward(self,
+        query,  # [Batch size, N queries, queries_dim]
+        values # [Batch size, N values, values_dim]
+    ):
+
+        weights = query @ self.W @ values.permute(0, 2, 1)  # [Batch size, N queries, N values]
+        weights /= np.sqrt(self.queries_embedding)
+        out = weights @ values # [Batch size, N queries, values_dim]
+        return out  
+    
+
+class RVEAttention_MP(nn.Module):
+
+    def __init__(self,  encoder, attention_values_embedding, attention_queries_embedding, decoder=None,
+                 reconstruct=False, dropout_regressor=0, regression_dims=200):
+        super(RVEAttention_MP, self).__init__()
+        self.decode_mode = reconstruct
+        if self.decode_mode:
+            assert isinstance(decoder, nn.Module), "You should to pass a valid decoder"
+            self.decoder = decoder
+        self.encoder = encoder
+        self.p = dropout_regressor
+        self.regression_dims = regression_dims
+        self.self_attention = MultiplicativeAttention(values_embedding=attention_values_embedding, queries_embedding=attention_queries_embedding)
+        self.batchnorm = nn.BatchNorm1d(attention_values_embedding, affine=False)
+  
+        self.regressor = nn.Sequential(
+            nn.Linear(self.encoder.latent_dim, self.regression_dims),
+            nn.Tanh(),
+            nn.Dropout(self.p),
+            nn.Linear(self.regression_dims, 1)
+        )
+
+    def forward(self, x):
+        """
+        self attention input_size dims: N, L, E,
+        where   N batch size
+                L is the target sequence length,
+                E is the query embedding dimension embed_dim
+        x input_size: N, L, F,
+        where   N batch size
+                L is window size,
+                E number of sensors
+        For feature-wise attention x should be transposed: (N, E, L)
+        """
+        x = torch.permute(x, (0, 2, 1))
+        x = self.self_attention(x, x)
+        x = torch.permute(x, (0, 2, 1))
+        x = self.batchnorm(x)
+        z, mean, log_var = self.encoder(x)
+        y_hat = self.regressor(z)
+        if self.decode_mode:
+            x_hat = self.decoder(z)
+            return y_hat, z, mean, log_var, x_hat
+
+        return y_hat, z, mean, log_var
