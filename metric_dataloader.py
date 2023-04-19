@@ -239,8 +239,8 @@ class MetricDataPreprocessor:
         x_test = self._condition_scaler(test)
 
         # Validation split:
-        gss = GroupShuffleSplit(n_splits=1, train_size=self.train_size, random_state=42)
-        train_unit, val_unit = next(gss.split(train['unit_nr'].unique(), groups=train['unit_nr'].unique()))
+        group_split = GroupShuffleSplit(n_splits=1, train_size=self.train_size, random_state=42)
+        train_unit, val_unit = next(group_split.split(train['unit_nr'].unique(), groups=train['unit_nr'].unique()))
         x_train = train[train['unit_nr'].isin(train_unit)]
         x_val = train[train['unit_nr'].isin(val_unit)]
 
@@ -263,10 +263,20 @@ class MetricDataPreprocessor:
         Calls dataset generation method and return 3 DataSets.
         :return: Train, Test, Validation DataLoaders
         """
+
+        # see https://pytorch.org/docs/stable/notes/randomness.html
+        def seed_worker(worker_id):
+            worker_seed = torch.initial_seed() % 2**32
+            np.random.seed(worker_seed)
+            random.seed(worker_seed)
+
+        g = torch.Generator()
+        g.manual_seed(0)
+
         train_dataset, test_dataset, val_dataset = self.get_datasets()
-        train_loader = DataLoader(dataset=train_dataset, **self.train_dl_kwargs)
-        test_loader = DataLoader(dataset=test_dataset, **self.test_dl_kwargs)
-        val_loader = DataLoader(dataset=val_dataset, **self.val_dl_kwargs)
+        train_loader = DataLoader(dataset=train_dataset, worker_init_fn=seed_worker, generator=g, **self.train_dl_kwargs)
+        test_loader = DataLoader(dataset=test_dataset, worker_init_fn=seed_worker, generator=g, **self.test_dl_kwargs)
+        val_loader = DataLoader(dataset=val_dataset, worker_init_fn=seed_worker, generator=g, **self.val_dl_kwargs)
         return train_loader, test_loader, val_loader
 
 

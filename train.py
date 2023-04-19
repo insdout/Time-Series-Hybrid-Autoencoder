@@ -274,6 +274,22 @@ class Trainer:
 def main(config):
     from test import Tester
 
+    # fix random seeds:
+    if config.random_seed.fix == True:
+        import random
+        import os
+
+        torch.manual_seed(42)
+        torch.cuda.manual_seed_all(42)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+        torch.use_deterministic_algorithms(True) 
+        np.random.seed(42)
+        random.seed(42)
+        # see https://pytorch.org/docs/stable/generated/torch.nn.LSTM.html#torch.nn.LSTM
+        os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":16:8"
+
+
     # current hydra output folder
     hydra_cfg = hydra.core.hydra_config.HydraConfig.get()
     output_dir = hydra_cfg['runtime']['output_dir']

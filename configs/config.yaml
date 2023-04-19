@@ -1,7 +1,8 @@
 defaults:
   - data_preprocessor: more_sensors_FD003
-  - model: rve_multihead_attention
+  - model: base_rve
   - optimizer: adam
   - loss: triplet
   - trainer: base_trainer
   - finetuner: finetuner
+  - random_seed: random_seed
