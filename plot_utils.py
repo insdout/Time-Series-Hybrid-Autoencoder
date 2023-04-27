@@ -74,6 +74,7 @@ def get_engine_runs(dataloader, model):
     model.eval().to('cpu')
 
     for engine_id in engine_ids:
+        engine_id =int(engine_id)
         with torch.no_grad():
             x, y = dataloader.dataset.get_run(engine_id)
             y_hat, z, *_ = model(x)
