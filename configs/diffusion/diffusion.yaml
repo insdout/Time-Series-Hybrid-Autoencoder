@@ -6,9 +6,10 @@ data_preprocessor:
   train_size: 0.99
   alpha: 1
   dir_path: './CMAPSSData/'
+  fix_seed: ${random_seed.fix}
 
   train_ds_mode: "train"
-  train_ds_return_pairs: True
+  train_ds_return_pairs: False
   train_ds_eps: 2
   train_ds_max_eps: 10
   train_ds_triplet_healthy_rul: 120
@@ -20,36 +21,43 @@ data_preprocessor:
   test_ds_triplet_healthy_rul: 120
 
   val_ds_mode: "train"
-  val_ds_return_pairs: True
+  val_ds_return_pairs: False
   val_ds_eps: 2
   val_ds_max_eps: 10
   val_ds_triplet_healthy_rul: 120
 
-  train_dl_batch_size: 64
+  train_dl_batch_size: 256
   train_dl_shuffle: True 
-  train_dl_num_workers: 2
+  train_dl_num_workers: 4
 
-  test_dl_batch_size: 64
+  test_dl_batch_size: 256
   test_dl_shuffle: False 
-  test_dl_num_workers: 2
+  test_dl_num_workers: 4
 
-  val_dl_batch_size: 64
+  val_dl_batch_size: 256
   val_dl_shuffle: True 
-  val_dl_num_workers: 2
+  val_dl_num_workers: 4
 
 checkpoint: 
   path: "./outputs/2023-04-22/15-07-36_windowsize_32/rve_model.pt"
 
+ddpm_model:
+  drop_prob: 0.1
+
+optimizer:
+  _target_: "torch.optim.Adam"
+  lr: 1e-4
+
 ddpm_train:
-  epochs: 1
-  n_T: 400 # 500
-  device:  "cpu" #"cuda:0"
+  epochs: 10
+  n_T: 100 # 500
+  device:  "cuda:0" #"cuda:0"
   z_dim:   2
   n_feat: 128 # 128 ok, 256 better (but slower)
-  lrate: 1e-4
+  lrate: ${diffusion.optimizer.lr}
   save_model: False
-  save_dir: './outputs/diffusion_outputs/'
   ws_test: [0.0, 0.5, 2.0] # strength of generative guidance
+
 
 context_unet_model:
   in_channels: 1
