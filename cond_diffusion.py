@@ -27,9 +27,11 @@ from torchvision.utils import save_image, make_grid
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation, PillowWriter
 import numpy as np
+import os
 
 import random
 import hydra
+from hydra.utils import instantiate
 from metric_dataloader import MetricDataPreprocessor
 
 class ResidualConvBlock(nn.Module):
@@ -134,7 +136,7 @@ class ContextUnet(nn.Module):
         self.down1 = UnetDown(n_feat, n_feat)
         self.down2 = UnetDown(n_feat, 2 * n_feat)
 
-        self.to_vec = nn.Sequential(nn.AvgPool2d(8), nn.GELU())
+        self.to_vec = nn.Sequential(nn.AvgPool2d(4), nn.GELU())
 
         self.timeembed1 = EmbedFC(1, 2*n_feat)
         self.timeembed2 = EmbedFC(1, 1*n_feat)
@@ -143,7 +145,7 @@ class ContextUnet(nn.Module):
 
         self.up0 = nn.Sequential(
             # nn.ConvTranspose2d(6 * n_feat, 2 * n_feat, 7, 7), # when concat temb and cemb end up w 6*n_feat
-            nn.ConvTranspose2d(2 * n_feat, 2 * n_feat, 8, 8), # otherwise just have 2*n_feat
+            nn.ConvTranspose2d(2 * n_feat, 2 * n_feat, 4, 4), # otherwise just have 2*n_feat
             nn.GroupNorm(8, 2 * n_feat),
             nn.ReLU(),
         )
@@ -158,19 +160,24 @@ class ContextUnet(nn.Module):
         )
 
     def forward(self, x, c, t, context_mask):
+        debug_print = False
         # x is (noisy) image, c is context label, t is timestep, 
         # context_mask says which samples to block the context on
         #print("===============================")
         #print("Forward | shape x:", x.shape)
         x = self.init_conv(x)
-        #print("Forward | shape init conv:", x.shape)
+        if debug_print:
+            print("Forward DOWN| shape init conv:", x.shape)
         down1 = self.down1(x)
-        #print("Forward | shape down1:", down1.shape)
+        if debug_print:
+            print("Forward DOWN| shape down1:", down1.shape)
         down2 = self.down2(down1)
-        #print("Forward | shape down2:", down2.shape)
+        if debug_print:
+            print("Forward DOWN| shape down2:", down2.shape)
         hiddenvec = self.to_vec(down2)
-        #print("Forward | shape hiddenvec:", hiddenvec.shape)
-        #print("===============================")
+        if debug_print:
+            print("Forward DOWN| shape hiddenvec:", hiddenvec.shape)
+            print("===============================")
         # convert context to one hot embedding
  
         
@@ -195,22 +202,28 @@ class ContextUnet(nn.Module):
 
         # could concatenate the context embedding here instead of adaGN
         # hiddenvec = torch.cat((hiddenvec, temb1, cemb1), 1)
-        #print("===============================")
-        #print("Forward UP| shape hiddenvec:", hiddenvec.shape)
+        if debug_print:
+            print("===============================")
+            print("Forward UP| shape hiddenvec:", hiddenvec.shape)
         up1 = self.up0(hiddenvec)
-        #print("Forward UP| shape up1:", up1.shape)
+        if debug_print:
+            print("Forward UP| shape up1:", up1.shape)
         # up2 = self.up1(up1, down2) # if want to avoid add and multiply embeddings
         #print("temb1", temb1.shape)
-        #print("cemb1", cemb1.shape)
+            print("cemb1", cemb1.shape)
+            print("cemb2", cemb2.shape)
         #print("up1", up1.shape)
         #print(cemb1*up1+ temb1)
         up2 = self.up1(cemb1*up1+ temb1, down2)  # add and multiply embeddings
-        #print("Forward UP| shape up2:", up2.shape)
+        if debug_print:
+            print("Forward UP| shape up2:", up2.shape)
         up3 = self.up2(cemb2*up2+ temb2, down1)
-        #print("Forward UP| shape up3:", up3.shape)
+        if debug_print:
+            print("Forward UP| shape up3:", up3.shape)
         out = self.out(torch.cat((up3, x), 1))
-        #print("Forward UP| shape out:", out.shape)
-        #print("===============================")
+        if debug_print:
+            print("Forward UP| shape out:", out.shape)
+            print("===============================")
         return out
 
 
@@ -371,10 +384,10 @@ def check(config):
   
     n_epoch = 1
     batch_size = 256
-    n_T = 400 # 500
+    n_T = 200 # 500
     device = "cpu"#"cuda:0"
     z_dim   = 2
-    n_feat = 128 # 128 ok, 256 better (but slower)
+    n_feat = 64 # 128 ok, 256 better (but slower)
     lrate = 1e-4
     save_model = False
     save_dir = './outputs/diffusion_outputs/'
@@ -392,17 +405,19 @@ def check(config):
     
     loss = ddpm(input_d.unsqueeze(1), z)
     print(loss)
-    print()
-    print("===========================")
-    print("SAMPLE:")
-    print("===========================")
-    z_samples = torch.rand((3, 2))
-    ddpm.eval()
-    with torch.no_grad():
-        xi, xi_sore = ddpm.sample_cmapss(n_sample=2, size=(1,32,32), device="cpu", z_space_contexts=z_samples, guide_w = 0.0)
-    print("done")
-    print("generated shape: ", xi.shape)
-    print("end")
+    sample = False
+    if sample:
+        print()
+        print("===========================")
+        print("SAMPLE:")
+        print("===========================")
+        z_samples = torch.rand((3, 2))
+        ddpm.eval()
+        with torch.no_grad():
+            xi, xi_sore = ddpm.sample_cmapss(n_sample=2, size=(1,32,32), device="cpu", z_space_contexts=z_samples, guide_w = 0.0)
+        print("done")
+        print("generated shape: ", xi.shape)
+        print("end")
 
 @hydra.main(version_base=None, config_path="./configs", config_name="config.yaml")
 def train_cmapss(config):
@@ -413,18 +428,23 @@ def train_cmapss(config):
     model_path = "./outputs/2023-04-22/15-07-36_windowsize_32/rve_model.pt"
     model_rve = torch.load(config.diffusion.checkpoint.path)
     #print(model_rve)
+    
+    hydra_cfg = hydra.core.hydra_config.HydraConfig.get()
+    output_dir = hydra_cfg['runtime']['output_dir']
+    print(f"output dir: {output_dir}")
 
   
-    n_epoch = 20
-    batch_size = 256
-    n_T = 500 # 500
-    device = "cuda:0" #"cpu"#
-    z_dim   = 2
-    n_feat = 256 # 128 ok, 256 better (but slower)
-    lrate = 1e-4
-    save_model = True
-    save_dir = './outputs/diffusion_outputs/'
-    ws_test = [0.0, 0.5, 2.0] # strength of generative guidance
+    n_epoch = config.diffusion.ddpm_train.epochs
+    n_T = config.diffusion.ddpm_train.n_T # 500
+    device = config.diffusion.ddpm_train.device #"cuda:0" or "cpu"#
+    z_dim   = config.diffusion.ddpm_train.z_dim
+    n_feat = config.diffusion.ddpm_train.n_feat # 128 ok, 256 better (but slower)
+    lrate = config.diffusion.ddpm_train.lrate #1e-4
+    save_model = config.diffusion.ddpm_train.save_model
+    save_dir = output_dir #'./outputs/diffusion_outputs/'
+    ws_test = config.diffusion.ddpm_train.ws_test #[0.0, 0.5, 2.0]  strength of generative guidance
+    
+    drop_prob = config.diffusion.ddpm_model.drop_prob
     
     ddpm = DDPM(
         nn_model=ContextUnet(
@@ -434,7 +454,7 @@ def train_cmapss(config):
         betas=(1e-4, 0.02), 
         n_T=n_T, 
         device=device, 
-        drop_prob=0.1)
+        drop_prob=drop_prob)
 
     ddpm.to(device)
     model_rve.eval().to(device)
@@ -442,14 +462,16 @@ def train_cmapss(config):
     # optionally load a model
     # ddpm.load_state_dict(torch.load("./data/diffusion_outputs/ddpm_unet01_mnist_9.pth"))
 
-    optim = torch.optim.Adam(ddpm.parameters(), lr=lrate)
+    # Instantiating the optimizer:
+    optimizer = instantiate(config.diffusion.optimizer, params=ddpm.parameters())
+    #optimizer = torch.optimizer.Adam(ddpm.parameters(), lr=lrate)
 
     for ep in range(n_epoch):
         print(f'epoch {ep}')
         ddpm.train()
 
         # linear lrate decay
-        optim.param_groups[0]['lr'] = lrate*(1-ep/n_epoch)
+        optimizer.param_groups[0]['lr'] = lrate*(1-ep/n_epoch)
 
         pbar = tqdm(train_loader)
         loss_ema = None
@@ -466,7 +488,7 @@ def train_cmapss(config):
                 m = nn.ReplicationPad2d((0, 11, 0, 0))
                 x_diffusion = m(x)
 
-            optim.zero_grad()
+            optimizer.zero_grad()
             x_diffusion = x_diffusion.unsqueeze(1).to(device)
             context = z.to(device)
             #print(f"diffusion input shape:{x_diffusion.shape} context shape: {context.shape}")
@@ -477,7 +499,7 @@ def train_cmapss(config):
             else:
                 loss_ema = 0.95 * loss_ema + 0.05 * loss.item()
             pbar.set_description(f"loss: {loss_ema:.4f}")
-            optim.step()
+            optimizer.step()
         
         # for eval, save an image of currently generated samples (top rows)
         # followed by real images (bottom rows)
@@ -503,7 +525,7 @@ def train_cmapss(config):
             num_columns = z_samples.shape[0]
             num_rows = n_sample
             for w_i, w in enumerate(ws_test):
-                x_gen, x_gen_store =ddpm.sample_cmapss(n_sample=n_sample, size=(1,32,32), device=device, z_space_contexts=z_samples, guide_w = 0.0)
+                x_gen, x_gen_store =ddpm.sample_cmapss(n_sample=n_sample, size=(1,32,32), device=device, z_space_contexts=z_samples, guide_w = w)
 
                 # append some real images at bottom, order by class also
                 x_real = m(x_samples).to(device)
@@ -529,7 +551,9 @@ def train_cmapss(config):
                         #print(i, row, col, row*num_columns+col)
                         #print(i, row, col, row*num_columns+col,"shape item:", x_gen_store[i,(row*num_columns)+col,0].shape)
                         axs[row, col].imshow(x_all[row*num_columns+col,:,:,:21].cpu().squeeze(),vmin=(x_all[:,:,:,:21].min()), vmax=(x_all[:,:,:,:21].max()))
-                plt.savefig(save_dir + f"image_ep{ep}_w{w}.png", dpi=100)
+                img_path = save_dir + '/images/'
+                os.makedirs(os.path.dirname(img_path), exist_ok=True)
+                plt.savefig(img_path + f"image_ep{ep}_w{w}.png", dpi=100)
                 print('saved image at ' + save_dir + f"image_ep{ep}_w{w}.png")
                 plt.close('all')
                 #fig.clf()
@@ -551,14 +575,16 @@ def train_cmapss(config):
                                 plots.append(axs[row, col].imshow(x_gen_store[i,(row*num_columns)+col,0,:,:21],vmin=(x_gen_store[i,:,0,:,:21]).min(), vmax=(x_gen_store[i,:,0,:,:21]).max()))
                         return plots
                     #print("x_gen shape:", x_gen_store.shape)
-                    ani = FuncAnimation(fig, animate_diff, fargs=[x_gen_store],  interval=200, blit=False, repeat=True, frames=x_gen_store.shape[0])    
-                    ani.save(save_dir + f"gif_ep{ep}_w{w}.gif", dpi=100, writer=PillowWriter(fps=5))
+                    ani = FuncAnimation(fig, animate_diff, fargs=[x_gen_store],  interval=200, blit=False, repeat=True, frames=x_gen_store.shape[0])
+                    img_path = save_dir + '/images/'
+                    os.makedirs(os.path.dirname(img_path), exist_ok=True)
+                    ani.save(img_path + f"gif_ep{ep}_w{w}.gif", dpi=100, writer=PillowWriter(fps=5))
                     print('saved image at ' + save_dir + f"gif_ep{ep}_w{w}.gif")
                     plt.close('all')
         # optionally save model
         if save_model and ep == int(n_epoch-1):
-            torch.save(ddpm.state_dict(), save_dir + f"model_{ep}.pth")
-            print('saved model at ' + save_dir + f"model_{ep}.pth")
+            torch.save(ddpm.state_dict(), save_dir + f"/model_{ep}.pth")
+            print('saved model at ' + save_dir + f"/model_{ep}.pth")
 
 
 if __name__ == "__main__":

@@ -5,6 +5,7 @@
   train_size: 0.8
   alpha: 1
   dir_path: './CMAPSSData/'
+  fix_seed: ${random_seed.fix}
 
   train_ds_mode: "train"
   train_ds_return_pairs: True

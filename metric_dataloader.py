@@ -26,6 +26,7 @@ class MetricDataPreprocessor:
                  train_size,
                  alpha,
                  dir_path,
+                 fix_seed = True,
                  train_ds_mode="train",
                  train_ds_return_pairs=True,
                  train_ds_eps=3,
@@ -63,6 +64,7 @@ class MetricDataPreprocessor:
         self.dir_path = dir_path
         self.alpha = alpha
         self.scaler = {}
+        self.fix_seed = fix_seed
         self.train_ds_kwargs = {
             "mode": train_ds_mode,
             "return_pairs": train_ds_return_pairs,
@@ -270,8 +272,14 @@ class MetricDataPreprocessor:
             np.random.seed(worker_seed)
             random.seed(worker_seed)
 
-        g = torch.Generator()
-        g.manual_seed(0)
+        if self.fix_seed:
+            g = torch.Generator()
+            g.manual_seed(0)
+        else:
+            seed_worker = None
+            g = None
+        
+        print("fix dataloader", self.fix_seed, seed_worker, g)
 
         train_dataset, test_dataset, val_dataset = self.get_datasets()
         train_loader = DataLoader(dataset=train_dataset, worker_init_fn=seed_worker, generator=g, **self.train_dl_kwargs)

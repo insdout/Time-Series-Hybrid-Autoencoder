@@ -6,6 +6,8 @@ import numpy as np
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import torch.nn as nn
 import seaborn as sns
+import os 
+import pandas as pd
 
 
 
@@ -285,3 +287,285 @@ def get_test_score(model, data_loader):
     rmse = (rmse / len(data_loader.dataset)) ** 0.5
     print(f"RMSE: {rmse :6.3f} Score: {score :6.3f}")
     return score, rmse
+
+
+def get_engine_runs_diffusion(dataloader, rve_model, diffusion_model, device='cpu'):
+    """
+    Performs inference for each engine_id (unit number) run from validation dataset
+    :return: dictionary with true RUL, predicted RUL and latent spase vector z for each engine_id, dict
+    """
+    engine_ids = dataloader.dataset.ids
+    history = defaultdict(dict)
+    rve_model.eval().to(device)
+    diffusion_model.eval().to(device)
+
+    for engine_id in engine_ids:
+        engine_id =int(engine_id)
+        with torch.no_grad():
+            x, y = dataloader.dataset.get_run(engine_id)
+            x = x.to(device)
+            y = y.to(device)
+            y_hat, z, *_ = rve_model(x)
+            print("z shape:", z.shape, "x size:", x.shape)
+            x_hat, _ = diffusion_model.sample_cmapss(n_sample=1, size=(1,32,32), device=x.device, z_space_contexts=z, guide_w = 0.0)
+            
+            #TODO: get several samples and pick the best one
+            #================================================
+            
+            print("shape x_hat", x_hat.shape)
+            rul_hat_diff, z_diff, *_ = rve_model(x_hat[:,:,:,:21].squeeze(1))
+
+            history[engine_id]['rul'] = y.detach().cpu().numpy()
+            history[engine_id]['rul_hat'] = y_hat.detach().cpu().numpy()
+            history[engine_id]['z'] = z.detach().cpu().numpy()
+            history[engine_id]["x"] = x.detach().cpu().numpy()
+            history[engine_id]["x_hat"] = x_hat[:,:,:,:21].squeeze(1).detach().cpu().numpy()
+            history[engine_id]["rul_hat_diff"] = rul_hat_diff.detach().cpu().numpy()
+            history[engine_id]["z_diff"] = z_diff.detach().cpu().numpy()
+
+    return history
+
+
+def plot_engine_run_diff(
+    history, 
+    img_path="./outputs/diffusion_outputs/images_decision/", 
+    engine_id=None, 
+    title="engine_run", 
+    save=False
+    ):
+    """_summary_
+
+    Args:
+        history (_type_): _description_
+        img_path (str, optional): _description_. Defaults to "./outputs/diffusion_outputs/images_decision/".
+        engine_id (_type_, optional): _description_. Defaults to None.
+        title (str, optional): _description_. Defaults to "engine_run".
+        save (bool, optional): _description_. Defaults to False.
+    """    
+    engine_ids = history.keys()
+
+    if engine_id is None:
+        engine_id = random.choice(list(engine_ids))
+
+    fig, ax = plt.subplots(nrows=2, ncols=1, sharex=False, figsize=(12, 6))
+    real_rul = history[engine_id]['rul']
+    rul_hat = history[engine_id]['rul_hat']
+    rul_hat_diff =  history[engine_id]['rul_hat_diff']
+    ax[0].plot(real_rul)
+    ax[0].plot(rul_hat)
+    ax[0].plot(rul_hat_diff, color="darkviolet")
+    ax[0].set_title(f"Engine Unit #{engine_id}")
+    ax[0].set_xlabel("Time(Cycle)")
+    ax[0].set_ylabel("RUL")
+    for run in engine_ids:
+        z = history[run]['z']
+        targets = history[run]['rul']
+        pa = ax[1].scatter(z[:, 0], z[:, 1], c=targets, s=1.5)
+    cba = plt.colorbar(pa, shrink=1.0)
+    cba.set_label("RUL")
+
+    z = history[engine_id]['z']
+    targets = history[engine_id]['rul']
+    pb = ax[1].scatter(z[:, 0], z[:, 1], c=targets, s=10, cmap=plt.cm.gist_heat_r)
+    cbb = plt.colorbar(pb, shrink=1.0)
+    cbb.set_label(f"Engine #{engine_id} RUL")
+    ax[1].set_xlabel("z - dim 1")
+    ax[1].set_ylabel("z - dim 2")
+    
+    z_diff = history[engine_id]['z_diff']
+    targets = history[engine_id]['rul']
+    pb2 = ax[1].scatter(z_diff[:, 0], z_diff[:, 1], c=targets, s=10, cmap=plt.cm.cool_r, alpha=1)
+    cbb2 = plt.colorbar(pb2, shrink=1.0)
+    cbb2.set_label(f"Engine #{engine_id} RUL by diffusion")
+    ax[1].set_xlabel("z - dim 1")
+    ax[1].set_ylabel("z - dim 2")
+    
+    if save:
+        #img_path ="./outputs/diffusion_outputs/images/" 
+        os.makedirs(os.path.dirname(img_path), exist_ok=True)
+        plt.savefig(img_path + str(title) + f"_eng_{engine_id}" + ".png")
+    plt.show()
+
+
+def plot_engine_run_diff_decision_boundary(
+    rve_model, history, 
+    img_path="./outputs/diffusion_outputs/images_decision/", 
+    engine_id=None, title="engine_run", 
+    save=False
+    ):
+    """_summary_
+
+    Args:
+        rve_model (_type_): _description_
+        history (_type_): _description_
+        img_path (str, optional): _description_. Defaults to "./outputs/diffusion_outputs/images_decision/".
+        engine_id (_type_, optional): _description_. Defaults to None.
+        title (str, optional): _description_. Defaults to "engine_run".
+        save (bool, optional): _description_. Defaults to False.
+    """    
+    engine_ids = history.keys()
+
+    if engine_id is None:
+        engine_id = random.choice(list(engine_ids))
+
+    fig, ax = plt.subplots(nrows=2, ncols=1, sharex=False, figsize=(12, 6))
+    real_rul = history[engine_id]['rul']
+    rul_hat = history[engine_id]['rul_hat']
+    rul_hat_diff =  history[engine_id]['rul_hat_diff']
+    ax[0].plot(real_rul)
+    ax[0].plot(rul_hat)
+    ax[0].plot(rul_hat_diff, color="darkviolet")
+    ax[0].set_title(f"Engine Unit #{engine_id}")
+    ax[0].set_xlabel("Time(Cycle)")
+    ax[0].set_ylabel("RUL")
+
+    with torch.no_grad():
+        z1_lim = [-1.5, 4]
+        z2_lim = [-2, 6]
+
+        h = 0.01
+        rve_model.eval()
+        rve_model.cpu()
+        # Generate a grid of points with distance h between them
+        xx, yy = np.meshgrid(np.arange(z1_lim[0], z1_lim[1], h), np.arange(z2_lim[0], z2_lim[1], h))
+      
+        # Predict the function value for the whole gid
+        z_mesh = torch.FloatTensor(np.c_[xx.ravel(), yy.ravel()]).unsqueeze(0)
+        rul_hat = rve_model.regressor(z_mesh)
+        rul_hat = rul_hat.reshape(xx.shape)
+        # Plot the contour and training examples
+        levels = list(range(125))
+        pb = ax[1].contourf(xx, yy, rul_hat, levels=levels)
+        cbb = plt.colorbar(pb, shrink=1.0)
+        cbb.set_label("RVE Regressor RUL decision")
+        
+        z_diff = history[engine_id]['z_diff']
+        targets = history[engine_id]['rul']
+        pb2 = ax[1].scatter(z_diff[:, 0], z_diff[:, 1], c=targets, s=5, cmap=plt.cm.cool, alpha=1)
+        cbb2 = plt.colorbar(pb2, shrink=1.0)
+        cbb2.set_label(f"Engine #{engine_id} RUL by diffusion")
+        ax[1].set_xlabel("z - dim 1")
+        ax[1].set_ylabel("z - dim 2")
+    
+    if save:
+        #img_path ="./outputs/diffusion_outputs/images_decision/" 
+        os.makedirs(os.path.dirname(img_path), exist_ok=True)
+        plt.savefig(img_path + str(title) + f"_eng_{engine_id}" + ".png")
+    plt.show()
+    
+    
+def reconstruct_timeseries(history, engine_id, rul_delta_threshold=60):
+    """
+    Reconstructs Time-Series from array of data slices (window_size, n_sensors) by appending last row of each consequent window,
+    to thw first one. Data slices with RUL delta above RUL delta threshold are taken as a whole, overwriting the constructed Time-Series,
+    as we need to highlight the problems in generative process if they exist.
+
+    Args:
+        history (_type_): _description_
+        engine_id (_type_): _description_
+        rul_delta_threshold (int, optional): _description_. Defaults to 60.
+
+    Returns:
+        _type_: _description_
+    """    
+    rul_true = history[engine_id]["rul"]
+    rul_predicted = history[engine_id]["rul_hat"]
+    x =  history[engine_id]["x"]
+    z = history[engine_id]["z"] 
+    x_diff = history[engine_id]["x_hat"] 
+    rul_hat_diff = history[engine_id]["rul_hat_diff"].squeeze(1)
+
+    rul_delta = np.abs(rul_true - rul_hat_diff).astype(int)
+    rul_delta_mask = rul_delta > rul_delta_threshold
+    x_reconstructed = []
+    x_diff_reconstructed = []
+    """
+    print("rul delta mask", rul_delta_mask)
+    print("rul shape", rul_true.shape)
+    print("rul_hat_diff shape", rul_hat_diff.shape)
+    print("rul delta",rul_delta.shape, rul_delta)
+    """
+    for ind, rul in enumerate(rul_true):
+        if ind == 0:
+            #print("first shape:", x_diff[ind].shape)
+            x_diff_reconstructed.append(x_diff[ind])
+            x_reconstructed.append(x[ind])
+        else:
+            #print("second shape:", x_diff[ind, -1, :].shape)
+            x_diff_reconstructed.append(np.expand_dims(x_diff[ind, -1, :], axis=0))
+            x_reconstructed.append(np.expand_dims(x[ind, -1, :], axis=0))
+    
+
+    rul_delta_mask_indexes = rul_delta_mask.nonzero()[0]
+    print(f"engine_id: {engine_id} rul_delta_diff index size: {rul_delta_mask_indexes.shape[0]}")
+    x_diff_reconstructed = np.concatenate(x_diff_reconstructed, axis=0)
+    x_reconstructed = np.concatenate(x_reconstructed, axis=0)
+    
+    for delta_indx in rul_delta_mask_indexes:
+        #print(delta_indx, type(delta_indx))
+        x_diff_reconstructed[0 + delta_indx: 32 + delta_indx] = x_diff[delta_indx]
+    #print("output shapes", x_diff_reconstructed.shape, x_reconstructed.shape)
+    return x_reconstructed, x_diff_reconstructed, rul_true, rul_hat_diff, rul_predicted
+
+
+def plot_sensors(df_true, df_diff,  rul_true, rul_hat_diff, rul_predicted, engine_id, path, save, show):
+    """
+    Plots sensor data for both: the original input data X from the dataset and reconstructed X_hat from diffusion model.
+
+    Args:
+        df_true (_type_): _description_
+        df_diff (_type_): _description_
+        rul_true (_type_): _description_
+        rul_hat_diff (_type_): _description_
+        rul_predicted (_type_): _description_
+        engine_id (_type_): _description_
+        path (_type_): _description_
+        save (_type_): _description_
+        show (_type_): _description_
+    """    
+    timesteps, num_sensors = df_true.shape
+    fig , ax = plt.subplots(num_sensors+1, 1, sharex=False, figsize=(8, 3*num_sensors))
+
+    ax[0].plot(rul_true, color="green", label="true RUL")
+    ax[0].plot(rul_hat_diff, color="red", label="diffusion RUL")
+    ax[0].plot(rul_predicted, color="orange", label="RVE RUL")
+    ax[0].set_title("RUL vs Time")
+    ax[0].legend(loc = "upper right")
+    
+    for i, sensor in enumerate(df_true.columns):
+        i +=1
+        ax[i].plot(df_true[sensor], color="green", label="true X")
+        ax[i].plot(df_diff[sensor], color="red", label="diffusion X_hat")
+        ax[i].set_title(f"sensor: {sensor}")
+        ax[i].legend(loc = "upper right")
+    
+    fig.suptitle(f"Engine_id: {engine_id}")
+    if show:
+        fig.tight_layout()
+        fig.subplots_adjust(top=0.97)
+        
+    if save:
+        fig.subplots_adjust(top=0.97)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        plt.savefig(path + "sensors" + f"_eng_{engine_id}" + ".png", dpi=50)
+        
+    
+def reconstruct_and_plot(history, engine_id, path, save=True, show=True):
+    """
+    Reconstructs Time-Series from history dict converts them into pandas DataFrame 
+    and plots all sensors (both original and generated)
+
+    Args:
+        history (_type_): _description_
+        engine_id (_type_): _description_
+        path (_type_): _description_
+        save (bool, optional): _description_. Defaults to True.
+        show (bool, optional): _description_. Defaults to True.
+    """    
+    x_true, x_diff, rul_true, rul_hat_diff, rul_predicted = reconstruct_timeseries(history, engine_id=engine_id)
+    columns = [f"s_{ind}" for ind in range(x_true.shape[1])]
+
+    df_true = pd.DataFrame(x_true, columns=columns)
+    df_diff = pd.DataFrame(x_diff, columns=columns)
+    
+    plot_sensors(df_true, df_diff,  rul_true, rul_hat_diff, rul_predicted, engine_id=engine_id, path=path, save=save, show=show)
