@@ -91,6 +91,7 @@ class UnetUp(nn.Module):
         process and upscale the image feature maps
         '''
         layers = [
+            nn.Conv2d(2*in_channels, in_channels, 3, 1, 1),
             nn.ConvTranspose2d(in_channels, out_channels, 2, 2),
             ResidualConvBlock(out_channels, out_channels),
             ResidualConvBlock(out_channels, out_channels),
@@ -100,6 +101,7 @@ class UnetUp(nn.Module):
     def forward(self, x, skip):
         #print("     UP shapes:", x.shape, skip.shape)
         x = torch.cat((x, skip), 1)
+        #print("     UP shapes:", x.shape, skip.shape)
         x = self.model(x)
         return x
 
@@ -133,28 +135,36 @@ class ContextUnet(nn.Module):
 
         self.init_conv = ResidualConvBlock(in_channels, n_feat, is_res=True)
 
-        self.down1 = UnetDown(n_feat, n_feat)
-        self.down2 = UnetDown(n_feat, 2 * n_feat)
+        self.down1 = UnetDown(n_feat, 2*n_feat)
+        self.down2 = UnetDown(2*n_feat, 4*n_feat)
+        self.down3 = UnetDown(4*n_feat, 8*n_feat)
+        self.down4 = UnetDown(8*n_feat, 16*n_feat)
 
-        self.to_vec = nn.Sequential(nn.AvgPool2d(4), nn.GELU())
+        self.to_vec = nn.Sequential(nn.AvgPool2d(2), nn.GELU())
 
-        self.timeembed1 = EmbedFC(1, 2*n_feat)
-        self.timeembed2 = EmbedFC(1, 1*n_feat)
-        self.contextembed1 = EmbedFC(z_dim , 2*n_feat)
-        self.contextembed2 = EmbedFC(z_dim , 1*n_feat)
+        self.timeembed1 = EmbedFC(1, 16*n_feat)
+        self.timeembed2 = EmbedFC(1, 8*n_feat)
+        self.timeembed3 = EmbedFC(1, 4*n_feat)
+        self.timeembed4 = EmbedFC(1, 2*n_feat)
+        self.contextembed1 = EmbedFC(z_dim , 16*n_feat)
+        self.contextembed2 = EmbedFC(z_dim , 8*n_feat)
+        self.contextembed3 = EmbedFC(z_dim , 4*n_feat)
+        self.contextembed4 = EmbedFC(z_dim , 2*n_feat)
 
         self.up0 = nn.Sequential(
             # nn.ConvTranspose2d(6 * n_feat, 2 * n_feat, 7, 7), # when concat temb and cemb end up w 6*n_feat
-            nn.ConvTranspose2d(2 * n_feat, 2 * n_feat, 4, 4), # otherwise just have 2*n_feat
-            nn.GroupNorm(8, 2 * n_feat),
+            nn.ConvTranspose2d(16*n_feat, 16*n_feat, 2, 2), # otherwise just have 2*n_feat
+            nn.GroupNorm(2, 16*n_feat),
             nn.ReLU(),
         )
 
-        self.up1 = UnetUp(4 * n_feat, n_feat)
-        self.up2 = UnetUp(2 * n_feat, n_feat)
+        self.up1 = UnetUp(16*n_feat, 8*n_feat)
+        self.up2 = UnetUp(8*n_feat, 4*n_feat)
+        self.up3 = UnetUp(4*n_feat, 2*n_feat)
+        self.up4 = UnetUp(2*n_feat, n_feat)
         self.out = nn.Sequential(
-            nn.Conv2d(2 * n_feat, n_feat, 3, 1, 1),
-            nn.GroupNorm(8, n_feat),
+            nn.Conv2d(2*n_feat, n_feat, 3, 1, 1),
+            nn.GroupNorm(2, n_feat),
             nn.ReLU(),
             nn.Conv2d(n_feat, self.in_channels, 3, 1, 1),
         )
@@ -174,7 +184,13 @@ class ContextUnet(nn.Module):
         down2 = self.down2(down1)
         if debug_print:
             print("Forward DOWN| shape down2:", down2.shape)
-        hiddenvec = self.to_vec(down2)
+        down3 = self.down3(down2)
+        if debug_print:
+            print("Forward DOWN| shape down3:", down3.shape)
+        down4 = self.down4(down3)
+        if debug_print:
+            print("Forward DOWN| shape down3:", down3.shape)
+        hiddenvec = self.to_vec(down4)
         if debug_print:
             print("Forward DOWN| shape hiddenvec:", hiddenvec.shape)
             print("===============================")
@@ -195,32 +211,45 @@ class ContextUnet(nn.Module):
         #print("===============================")
         
         # embed context, time step
-        cemb1 = self.contextembed1(c).view(-1, self.n_feat * 2, 1, 1)
-        temb1 = self.timeembed1(t).view(-1, self.n_feat * 2, 1, 1)
-        cemb2 = self.contextembed2(c).view(-1, self.n_feat, 1, 1)
-        temb2 = self.timeembed2(t).view(-1, self.n_feat, 1, 1)
+        cemb1 = self.contextembed1(c).view(-1, self.n_feat*16, 1, 1)
+        temb1 = self.timeembed1(t).view(-1, self.n_feat*16, 1, 1)
+        cemb2 = self.contextembed2(c).view(-1, self.n_feat*8, 1, 1)
+        temb2 = self.timeembed2(t).view(-1, self.n_feat*8, 1, 1)
+        
+        cemb3 = self.contextembed3(c).view(-1, self.n_feat*4, 1, 1)
+        temb3 = self.timeembed3(t).view(-1, self.n_feat*4, 1, 1)
+        cemb4 = self.contextembed4(c).view(-1, self.n_feat*2, 1, 1)
+        temb4 = self.timeembed4(t).view(-1, self.n_feat*2, 1, 1)
 
         # could concatenate the context embedding here instead of adaGN
         # hiddenvec = torch.cat((hiddenvec, temb1, cemb1), 1)
         if debug_print:
             print("===============================")
             print("Forward UP| shape hiddenvec:", hiddenvec.shape)
-        up1 = self.up0(hiddenvec)
+        up1 = self.up0(hiddenvec) # 8*n_feat => 4*n_feat
         if debug_print:
-            print("Forward UP| shape up1:", up1.shape)
+            print("Forward UP| shape up0:", up1.shape)
         # up2 = self.up1(up1, down2) # if want to avoid add and multiply embeddings
         #print("temb1", temb1.shape)
             print("cemb1", cemb1.shape)
             print("cemb2", cemb2.shape)
+            temp = cemb1*up1+ temb1
+            print(f"embedding shape: {temp.shape} down3 shape: {down3.shape}")
         #print("up1", up1.shape)
         #print(cemb1*up1+ temb1)
-        up2 = self.up1(cemb1*up1+ temb1, down2)  # add and multiply embeddings
+        up2 = self.up1(cemb1*up1+ temb1, down4)  # add and multiply embeddings
         if debug_print:
-            print("Forward UP| shape up2:", up2.shape)
-        up3 = self.up2(cemb2*up2+ temb2, down1)
+            print("Forward UP| shape up1:", up2.shape)
+        up3 = self.up2(cemb2*up2+ temb2, down3)
         if debug_print:
-            print("Forward UP| shape up3:", up3.shape)
-        out = self.out(torch.cat((up3, x), 1))
+            print("Forward UP| shape up2:", up3.shape)
+        up4 = self.up3(cemb3*up3+ temb3, down2)
+        if debug_print:
+            print("Forward UP| shape up3:", up4.shape)
+        up5 = self.up4(cemb4*up4+ temb4, down1)
+        if debug_print:
+            print("Forward UP| shape up3:", up5.shape)
+        out = self.out(torch.cat((up5, x), 1))
         if debug_print:
             print("Forward UP| shape out:", out.shape)
             print("===============================")
@@ -457,7 +486,10 @@ def train_cmapss(config):
         drop_prob=drop_prob)
 
     ddpm.to(device)
+    
     model_rve.eval().to(device)
+    for param in model_rve.parameters():
+        param.requires_grad = False
 
     # optionally load a model
     # ddpm.load_state_dict(torch.load("./data/diffusion_outputs/ddpm_unet01_mnist_9.pth"))
@@ -493,6 +525,7 @@ def train_cmapss(config):
             context = z.to(device)
             #print(f"diffusion input shape:{x_diffusion.shape} context shape: {context.shape}")
             loss = ddpm(x_diffusion, context)
+            
             loss.backward()
             if loss_ema is None:
                 loss_ema = loss.item()
@@ -519,6 +552,23 @@ def train_cmapss(config):
 
         #print("x_samples shape: ", x_samples.shape)
         #print("z_samples shape: ", z_samples.shape)
+        
+        # Letent space loss:
+        """
+        n_sample = 4 
+        num_columns = z_samples.shape[0]
+        num_rows = n_sample
+        x_gen, x_gen_store =ddpm.sample_cmapss(n_sample=1, size=(1,32,32), device=device, z_space_contexts=z_samples, guide_w = 2.0)
+        print(f"x_gen shape: {x_gen.shape} x_samples shape: {x_samples.shape}")
+        x_gen_unpadded = x_gen[:,:,:,:21].squeeze(1)
+        print(f"x_gen unpadded shape: {x_gen_unpadded.shape} x_samples shape: {x_samples.shape}")
+        _, z_gen, *_ = model_rve(x_gen_unpadded)
+        latent_loss = nn.MSELoss()(z_samples, z_gen)
+        print(latent_loss)
+        """
+        
+        
+        
         ddpm.eval()
         with torch.no_grad():
             n_sample = 4 

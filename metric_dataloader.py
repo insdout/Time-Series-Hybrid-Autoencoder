@@ -26,7 +26,8 @@ class MetricDataPreprocessor:
                  train_size,
                  alpha,
                  dir_path,
-                 fix_seed = True,
+                 fix_seed=True,
+                 downsample_healthy=False,
                  train_ds_mode="train",
                  train_ds_return_pairs=True,
                  train_ds_eps=3,
@@ -65,6 +66,7 @@ class MetricDataPreprocessor:
         self.alpha = alpha
         self.scaler = {}
         self.fix_seed = fix_seed
+        self.downsample_healthy = downsample_healthy
         self.train_ds_kwargs = {
             "mode": train_ds_mode,
             "return_pairs": train_ds_return_pairs,
@@ -253,7 +255,7 @@ class MetricDataPreprocessor:
         Calls data loading method and return 3 DataSets.
         :return: Train, Test, Validation Datasets
         """
-        dataset_kwargs = {"max_rul": self.max_rul, "window_size": self.window_size, "sensors": self.sensors}
+        dataset_kwargs = {"max_rul": self.max_rul, "window_size": self.window_size, "sensors": self.sensors, "downsample_healthy": self.downsample_healthy}
         train_df, test_df, val_df = self._load_data()
         train_dataset = MetricDataset(dataset=train_df, **dataset_kwargs, **self.train_ds_kwargs)
         test_dataset = MetricDataset(dataset=test_df, **dataset_kwargs, **self.test_ds_kwargs)
@@ -279,7 +281,7 @@ class MetricDataPreprocessor:
             seed_worker = None
             g = None
         
-        print("fix dataloader", self.fix_seed, seed_worker, g)
+        print(f"fix dataloader: {self.fix_seed} seed_worker: {seed_worker} g: {g}")
 
         train_dataset, test_dataset, val_dataset = self.get_datasets()
         train_loader = DataLoader(dataset=train_dataset, worker_init_fn=seed_worker, generator=g, **self.train_dl_kwargs)
@@ -298,7 +300,8 @@ class MetricDataset(Dataset):
                  return_pairs,
                  triplet_eps,
                  triplet_max_eps,
-                 triplet_healthy_rul
+                 triplet_healthy_rul,
+                 downsample_healthy
                  ):
 
         self.return_pairs = return_pairs
@@ -313,6 +316,7 @@ class MetricDataset(Dataset):
         self.mode = mode
         self.max_rul = max_rul
         self.window_size = window_size
+        self.downsample_healthy = downsample_healthy
         if type(sensors) != list:
             self.sensors = list(sensors)
         else:
@@ -362,6 +366,16 @@ class MetricDataset(Dataset):
         :param index: index of datapoint to be returned, int
         :return: 2 or 6 torch.FloatTensors
         """
+        if self.downsample_healthy:
+            run_id = self.run_id[index]
+            rul = self.targets[index]
+            if (rul >= self.max_rul) & (np.random.rand(1) > 0.5):
+                candidate_point_mask = (self.targets < self.max_rul) & (self.run_id == run_id)
+                candidate_point_mask_indexes = np.flatnonzero(candidate_point_mask)
+                idx = random.choice(candidate_point_mask_indexes)
+                return torch.FloatTensor(self.sequences[idx]), torch.FloatTensor([self.targets[idx]])
+            else:
+                torch.FloatTensor(self.sequences[index]), torch.FloatTensor([self.targets[index]])
         if self.return_pairs:
             return self.get_triplet(index)
         return torch.FloatTensor(self.sequences[index]), torch.FloatTensor([self.targets[index]])

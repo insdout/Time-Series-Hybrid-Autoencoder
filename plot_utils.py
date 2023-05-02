@@ -299,7 +299,7 @@ def get_engine_runs_diffusion(dataloader, rve_model, diffusion_model, device='cp
     rve_model.eval().to(device)
     diffusion_model.eval().to(device)
 
-    for engine_id in engine_ids:
+    for engine_id in engine_ids[:0]:
         engine_id =int(engine_id)
         with torch.no_grad():
             x, y = dataloader.dataset.get_run(engine_id)
@@ -307,7 +307,7 @@ def get_engine_runs_diffusion(dataloader, rve_model, diffusion_model, device='cp
             y = y.to(device)
             y_hat, z, *_ = rve_model(x)
             print("z shape:", z.shape, "x size:", x.shape)
-            x_hat, _ = diffusion_model.sample_cmapss(n_sample=1, size=(1,32,32), device=x.device, z_space_contexts=z, guide_w = 0.0)
+            x_hat, _ = diffusion_model.sample_cmapss(n_sample=10, size=(1,32,32), device=x.device, z_space_contexts=z, guide_w = 0.0)
             
             #TODO: get several samples and pick the best one
             #================================================
@@ -322,13 +322,14 @@ def get_engine_runs_diffusion(dataloader, rve_model, diffusion_model, device='cp
             history[engine_id]["x_hat"] = x_hat[:,:,:,:21].squeeze(1).detach().cpu().numpy()
             history[engine_id]["rul_hat_diff"] = rul_hat_diff.detach().cpu().numpy()
             history[engine_id]["z_diff"] = z_diff.detach().cpu().numpy()
+            print("DONE")
 
     return history
 
 
 def plot_engine_run_diff(
     history, 
-    img_path="./outputs/diffusion_outputs/images_decision/", 
+    img_path="./outputs/diffusion_outputs/images/", 
     engine_id=None, 
     title="engine_run", 
     save=False
@@ -508,7 +509,7 @@ def reconstruct_timeseries(history, engine_id, rul_delta_threshold=60):
     return x_reconstructed, x_diff_reconstructed, rul_true, rul_hat_diff, rul_predicted
 
 
-def plot_sensors(df_true, df_diff,  rul_true, rul_hat_diff, rul_predicted, engine_id, path, save, show):
+def plot_sensors(df_true, df_diff,  rul_true, rul_hat_diff, rul_predicted, engine_id, img_path, save, show):
     """
     Plots sensor data for both: the original input data X from the dataset and reconstructed X_hat from diffusion model.
 
@@ -546,11 +547,11 @@ def plot_sensors(df_true, df_diff,  rul_true, rul_hat_diff, rul_predicted, engin
         
     if save:
         fig.subplots_adjust(top=0.97)
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        plt.savefig(path + "sensors" + f"_eng_{engine_id}" + ".png", dpi=50)
+        os.makedirs(os.path.dirname(img_path), exist_ok=True)
+        plt.savefig(img_path + "sensors" + f"_eng_{engine_id}" + ".png", dpi=50)
         
     
-def reconstruct_and_plot(history, engine_id, path, save=True, show=True):
+def reconstruct_and_plot(history, engine_id, img_path, save=True, show=True):
     """
     Reconstructs Time-Series from history dict converts them into pandas DataFrame 
     and plots all sensors (both original and generated)
@@ -568,4 +569,4 @@ def reconstruct_and_plot(history, engine_id, path, save=True, show=True):
     df_true = pd.DataFrame(x_true, columns=columns)
     df_diff = pd.DataFrame(x_diff, columns=columns)
     
-    plot_sensors(df_true, df_diff,  rul_true, rul_hat_diff, rul_predicted, engine_id=engine_id, path=path, save=save, show=show)
+    plot_sensors(df_true, df_diff,  rul_true, rul_hat_diff, rul_predicted, engine_id=engine_id, img_path=img_path, save=save, show=show)
