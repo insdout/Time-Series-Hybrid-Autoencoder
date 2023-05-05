@@ -6,6 +6,7 @@
   alpha: 1
   dir_path: './CMAPSSData/'
   fix_seed: ${random_seed.fix}
+  downsample_healthy: False
 
   train_ds_mode: "train"
   train_ds_return_pairs: True
