@@ -332,7 +332,8 @@ def plot_engine_run_diff(
     img_path="./outputs/diffusion_outputs/images/", 
     engine_id=None, 
     title="engine_run", 
-    save=False
+    save=True,
+    show=False
     ):
     """_summary_
 
@@ -385,14 +386,16 @@ def plot_engine_run_diff(
         #img_path ="./outputs/diffusion_outputs/images/" 
         os.makedirs(os.path.dirname(img_path), exist_ok=True)
         plt.savefig(img_path + str(title) + f"_eng_{engine_id}" + ".png")
-    plt.show()
+    if show:
+        plt.show()
 
 
 def plot_engine_run_diff_decision_boundary(
     rve_model, history, 
     img_path="./outputs/diffusion_outputs/images_decision/", 
     engine_id=None, title="engine_run", 
-    save=False
+    save=True,
+    show=False
     ):
     """_summary_
 
@@ -452,10 +455,11 @@ def plot_engine_run_diff_decision_boundary(
         #img_path ="./outputs/diffusion_outputs/images_decision/" 
         os.makedirs(os.path.dirname(img_path), exist_ok=True)
         plt.savefig(img_path + str(title) + f"_eng_{engine_id}" + ".png")
-    plt.show()
+    if show:
+        plt.show()
     
     
-def reconstruct_timeseries(history, engine_id, rul_delta_threshold=60):
+def reconstruct_timeseries(history, engine_id, path_with_big_delta_rul=False, rul_delta_threshold=60):
     """
     Reconstructs Time-Series from array of data slices (window_size, n_sensors) by appending last row of each consequent window,
     to thw first one. Data slices with RUL delta above RUL delta threshold are taken as a whole, overwriting the constructed Time-Series,
@@ -502,9 +506,10 @@ def reconstruct_timeseries(history, engine_id, rul_delta_threshold=60):
     x_diff_reconstructed = np.concatenate(x_diff_reconstructed, axis=0)
     x_reconstructed = np.concatenate(x_reconstructed, axis=0)
     
-    for delta_indx in rul_delta_mask_indexes:
-        #print(delta_indx, type(delta_indx))
-        x_diff_reconstructed[0 + delta_indx: 32 + delta_indx] = x_diff[delta_indx]
+    if path_with_big_delta_rul:
+        for delta_indx in rul_delta_mask_indexes:
+            #print(delta_indx, type(delta_indx))
+            x_diff_reconstructed[0 + delta_indx: 32 + delta_indx] = x_diff[delta_indx]
     #print("output shapes", x_diff_reconstructed.shape, x_reconstructed.shape)
     return x_reconstructed, x_diff_reconstructed, rul_true, rul_hat_diff, rul_predicted
 

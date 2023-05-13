@@ -2,8 +2,22 @@ defaults:
   - data_preprocessor: more_sensors_FD003
   - model: base_rve
   - optimizer: adam
+  - scheduler: scheduler
   - loss: triplet
   - trainer: base_trainer
   - finetuner: finetuner
   - random_seed: random_seed
   - diffusion: diffusion
+  - knnmetric: knnmetric
+  - noise_tester: noise_tester
+  - _self_
+
+hydra:
+  sweeper:
+    params:
+      optimizer.lr: 0.002, 0.003
+      model.encoder.dropout: 0.2, 0.5, 0.7
+      model.decoder.dropout_layer: 0.5, 0.7, 0.8
+      model.rve.dropout_regressor: 0.5, 0.7, 0.8
+      model.rve.regression_dims: 50, 100, 150
+  

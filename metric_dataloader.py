@@ -19,39 +19,47 @@ class MetricDataPreprocessor:
     """
 
     def __init__(self,
-                 dataset_name,
-                 max_rul,
-                 window_size,
-                 sensors,
-                 train_size,
-                 alpha,
-                 dir_path,
-                 fix_seed=True,
-                 downsample_healthy=False,
-                 train_ds_mode="train",
-                 train_ds_return_pairs=True,
-                 train_ds_eps=3,
-                 train_ds_max_eps=6,
-                 train_ds_triplet_healthy_rul=120,
-                 test_ds_mode="test",
-                 test_ds_return_pairs=False,
-                 test_ds_eps=3,
-                 test_ds_max_eps=6,
-                 test_ds_triplet_healthy_rul=120,
-                 val_ds_mode="train",
-                 val_ds_return_pairs=True,
-                 val_ds_eps=3,
-                 val_ds_max_eps=6,
-                 val_ds_triplet_healthy_rul=120,
-                 train_dl_batch_size=100,
-                 train_dl_shuffle=True,
-                 train_dl_num_workers=2,
-                 test_dl_batch_size=100,
-                 test_dl_shuffle=False,
-                 test_dl_num_workers=2,
-                 val_dl_batch_size=100,
-                 val_dl_shuffle=True,
-                 val_dl_num_workers=2
+                dataset_name,
+                max_rul,
+                window_size,
+                sensors,
+                train_size,
+                alpha,
+                dir_path,
+                fix_seed=True,
+                downsample_healthy_train=False,
+                downsample_healthy_validation=False,
+                downsample_healthy_test=False,
+                downsample_healthy_train_p=0,
+                downsample_healthy_validation_p=0,
+                downsample_healthy_test_p=0,
+                downsample_rul_threshold_train=None,
+                downsample_rul_threshold_validation=None,
+                downsample_rul_threshold_test=None,
+                train_ds_mode="train",
+                train_ds_return_pairs=True,
+                train_ds_eps=3,
+                train_ds_max_eps=6,
+                train_ds_triplet_healthy_rul=120,
+                test_ds_mode="test",
+                test_ds_return_pairs=False,
+                test_ds_eps=3,
+                test_ds_max_eps=6,
+                test_ds_triplet_healthy_rul=120,
+                val_ds_mode="train",
+                val_ds_return_pairs=True,
+                val_ds_eps=3,
+                val_ds_max_eps=6,
+                val_ds_triplet_healthy_rul=120,
+                train_dl_batch_size=100,
+                train_dl_shuffle=True,
+                train_dl_num_workers=2,
+                test_dl_batch_size=100,
+                test_dl_shuffle=False,
+                test_dl_num_workers=2,
+                val_dl_batch_size=100,
+                val_dl_shuffle=True,
+                val_dl_num_workers=2
                  ):
 
         self.dataset_name = dataset_name
@@ -66,27 +74,44 @@ class MetricDataPreprocessor:
         self.alpha = alpha
         self.scaler = {}
         self.fix_seed = fix_seed
-        self.downsample_healthy = downsample_healthy
+        self.downsample_healthy_train = downsample_healthy_train
+        self.downsample_healthy_validation = downsample_healthy_validation
+        self.downsample_healthy_test = downsample_healthy_test
+        self.downsample_healthy_train_p = downsample_healthy_train_p
+        self.downsample_healthy_validation_p = downsample_healthy_validation_p
+        self.downsample_healthy_test_p = downsample_healthy_test_p
+        self.downsample_rul_threshold_train=downsample_rul_threshold_train,
+        self.downsample_rul_threshold_validation=downsample_rul_threshold_validation,
+        self.downsample_rul_threshold_test=downsample_rul_threshold_test,
         self.train_ds_kwargs = {
             "mode": train_ds_mode,
             "return_pairs": train_ds_return_pairs,
             "triplet_eps": train_ds_eps,
             "triplet_max_eps": train_ds_max_eps,
-            "triplet_healthy_rul": train_ds_triplet_healthy_rul
+            "triplet_healthy_rul": train_ds_triplet_healthy_rul,
+            "downsample_healthy": downsample_healthy_train,
+            "downsample_healthy_p": downsample_healthy_train_p,
+            "downsample_rul_threshold": downsample_rul_threshold_train
         }
         self.test_ds_kwargs = {
             "mode": test_ds_mode,
             "return_pairs": test_ds_return_pairs,
             "triplet_eps": test_ds_eps,
             "triplet_max_eps": test_ds_max_eps,
-            "triplet_healthy_rul": test_ds_triplet_healthy_rul
+            "triplet_healthy_rul": test_ds_triplet_healthy_rul,
+            "downsample_healthy": downsample_healthy_test,
+            "downsample_healthy_p": downsample_healthy_test_p,
+            "downsample_rul_threshold": downsample_rul_threshold_test
         }
         self.val_ds_kwargs = {
             "mode": val_ds_mode,
             "return_pairs": val_ds_return_pairs,
             "triplet_eps": val_ds_eps,
             "triplet_max_eps": val_ds_max_eps,
-            "triplet_healthy_rul": val_ds_triplet_healthy_rul
+            "triplet_healthy_rul": val_ds_triplet_healthy_rul,
+            "downsample_healthy": downsample_healthy_validation,
+            "downsample_healthy_p": downsample_healthy_validation_p,
+            "downsample_rul_threshold": downsample_rul_threshold_validation
         }
         self.train_dl_kwargs = {
             "batch_size": train_dl_batch_size,
@@ -255,7 +280,7 @@ class MetricDataPreprocessor:
         Calls data loading method and return 3 DataSets.
         :return: Train, Test, Validation Datasets
         """
-        dataset_kwargs = {"max_rul": self.max_rul, "window_size": self.window_size, "sensors": self.sensors, "downsample_healthy": self.downsample_healthy}
+        dataset_kwargs = {"max_rul": self.max_rul, "window_size": self.window_size, "sensors": self.sensors}
         train_df, test_df, val_df = self._load_data()
         train_dataset = MetricDataset(dataset=train_df, **dataset_kwargs, **self.train_ds_kwargs)
         test_dataset = MetricDataset(dataset=test_df, **dataset_kwargs, **self.test_ds_kwargs)
@@ -301,7 +326,9 @@ class MetricDataset(Dataset):
                  triplet_eps,
                  triplet_max_eps,
                  triplet_healthy_rul,
-                 downsample_healthy
+                 downsample_healthy,
+                 downsample_healthy_p,
+                 downsample_rul_threshold=None
                  ):
 
         self.return_pairs = return_pairs
@@ -317,6 +344,8 @@ class MetricDataset(Dataset):
         self.max_rul = max_rul
         self.window_size = window_size
         self.downsample_healthy = downsample_healthy
+        self.downsample_healthy_p = downsample_healthy_p
+        self.downsample_rul_threshold = downsample_rul_threshold
         if type(sensors) != list:
             self.sensors = list(sensors)
         else:
@@ -369,13 +398,16 @@ class MetricDataset(Dataset):
         if self.downsample_healthy:
             run_id = self.run_id[index]
             rul = self.targets[index]
-            if (rul >= self.max_rul) & (np.random.rand(1) > 0.5):
-                candidate_point_mask = (self.targets < self.max_rul) & (self.run_id == run_id)
+            downsampe_rul_threshold = self.max_rul
+            if self.downsample_rul_threshold:
+                downsampe_rul_threshold = self.downsample_rul_threshold
+            if (rul >= self.max_rul) & (np.random.rand(1) < self.downsample_healthy_p):
+                candidate_point_mask = (self.targets < downsampe_rul_threshold) & (self.run_id == run_id)
                 candidate_point_mask_indexes = np.flatnonzero(candidate_point_mask)
                 idx = random.choice(candidate_point_mask_indexes)
-                return torch.FloatTensor(self.sequences[idx]), torch.FloatTensor([self.targets[idx]])
+                index = idx
             else:
-                torch.FloatTensor(self.sequences[index]), torch.FloatTensor([self.targets[index]])
+                index = index
         if self.return_pairs:
             return self.get_triplet(index)
         return torch.FloatTensor(self.sequences[index]), torch.FloatTensor([self.targets[index]])

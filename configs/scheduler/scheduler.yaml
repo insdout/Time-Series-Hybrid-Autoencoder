@@ -1,0 +1,6 @@
+mode:
+  enable: False
+self:
+  _target_: "torch.optim.lr_scheduler.LinearLR"
+  start_factor: 0.5
+  total_iters: 10

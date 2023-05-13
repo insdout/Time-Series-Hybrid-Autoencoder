@@ -5,6 +5,9 @@ import torch
 import torch.nn as nn
 import matplotlib.pyplot as plt
 from collections import defaultdict
+from metric import KNNRULmetric
+import json
+import gc
 
 import hydra
 
@@ -12,7 +15,7 @@ import hydra
 class Tester:
 
     @staticmethod
-    def score(y, y_hat):
+    def score(true_rul, rul_hat):
         """
         Computes score according to original CMAPSS dataset paper.
         :param y: true RUL
@@ -20,26 +23,46 @@ class Tester:
         :return: float
         """
         score = 0
-        y = y.cpu()
-        y_hat = y_hat.cpu()
-        for i in range(len(y_hat)):
-            if y[i] <= y_hat[i]:
-                score += np.exp(-(y[i] - y_hat[i]) / 10.0) - 1
+        true_rul = true_rul.cpu()
+        rul_hat = rul_hat.cpu()
+        for i in range(len(rul_hat)):
+            if true_rul[i] <= rul_hat[i]:
+                score += np.exp(-(true_rul[i] - rul_hat[i]) / 10.0) - 1
             else:
-                score += np.exp((y[i] - y_hat[i]) / 13.0) - 1
+                score += np.exp((true_rul[i] - rul_hat[i]) / 13.0) - 1
         return score
     
-    def __init__(self, path, model, val_loader, test_loader):
+    def __init__(self, 
+                 path, 
+                 model, 
+                 val_loader, 
+                 test_loader, 
+                 rul_threshold=125, 
+                 n_neighbors=3, 
+                 add_noise_val=False, 
+                 add_noise_test=False, 
+                 noise_mean=0, 
+                 noise_std=1, 
+                 save=True, 
+                 show=False
+                 ):
         self.model = model
+        self.metric = KNNRULmetric(rul_threshold=rul_threshold, n_neighbors=n_neighbors)
         self.test_loader = test_loader
         self.val_loader = val_loader
         self.device = "cpu"
-        z, y, y_hat = self.get_z()
+        self.add_noise_val = add_noise_val
+        self.add_noise_test = add_noise_test
+        self.noise_mean = noise_mean
+        self.noise_std = noise_std
+        z, true_rul, rul_hat = self.get_z()
         self.z = z
-        self.y = y
-        self.y_hat = y_hat
+        self.true_rul = true_rul
+        self.rul_hat = rul_hat
         self.path = path
         self.engine_history = self.get_engine_runs()
+        self.save = save
+        self.show = show
 
     def get_test_score(self):
         """
@@ -51,18 +74,21 @@ class Tester:
         self.model.eval()
         for batch_idx, data in enumerate(self.test_loader):
             with torch.no_grad():
-                x, y = data
-                x, y = x.to(self.device), y.to(self.device)
+                x, true_rul = data
+                # Adding Gaussian noise if add_noise_test == True:
+                if self.add_noise_test:
+                    x += torch.empty_like(x).normal_(mean=self.noise_mean, std=self.noise_std)
+                x, true_rul = x.to(self.device), true_rul.to(self.device)
 
-                y_hat, *_ = self.model(x)
+                rul_hat, *_ = self.model(x)
                 
-                loss = nn.MSELoss()(y_hat, y)
+                loss = nn.MSELoss()(rul_hat, true_rul)
 
-                rmse += loss.item() * len(y)
-                score += Tester.score(y, y_hat).item()
+                rmse += loss.item() * len(true_rul)
+                score += Tester.score(true_rul, rul_hat).item()
 
         rmse = (rmse / len(self.test_loader.dataset)) ** 0.5
-        print(f"RMSE: {rmse :6.3f} Score: {score :6.3f}")
+        #print(f"RMSE: {rmse :6.3f} Score: {score :6.3f}")
         return score, rmse
 
     def get_z(self):
@@ -82,11 +108,17 @@ class Tester:
 
                 if pairs_mode:
                     x, pos_x, neg_x, y, _, _ = data
-
+                    # Adding Gaussian noise if add_noise_val == True:
+                    if self.add_noise_val:
+                        x += torch.empty_like(x).normal_(mean=self.noise_mean, std=self.noise_std)
+                    x, y = x.to(self.device), y.to(self.device)
                     y_hat, z, mean, log_var, x_hat = self.model(x)
 
                 else:
                     x, y = data
+                    # Adding Gaussian noise if add_noise_val == True:
+                    if self.add_noise_val:
+                        x += torch.empty_like(x).normal_(mean=self.noise_mean, std=self.noise_std)
                     x, y = x.to(self.device), y.to(self.device)
                     y_hat, z, mean, log_var, x_hat = self.model(x)
                    
@@ -103,7 +135,7 @@ class Tester:
         :param show: whether to show the plot or not
         """
         z = self.z
-        targets = self.y
+        targets = self.true_rul
         plt.figure(figsize=(8, 4))
         if len(targets) > 0:
             plt.scatter(z[:, 0], z[:, 1], c=targets, s=1.5)
@@ -117,6 +149,13 @@ class Tester:
             img_path = self.path + '/images/'
             os.makedirs(os.path.dirname(img_path), exist_ok=True)
             plt.savefig(img_path + 'latent_space_epoch' + str(title) + '.png')
+            # Clear the current axes.
+            plt.cla() 
+            # Clear the current figure.
+            plt.clf() 
+            # Closes all the figure windows.
+            plt.close('all')   
+            gc.collect()
         if show:
             plt.show()
 
@@ -131,10 +170,13 @@ class Tester:
 
         for engine_id in engine_ids:
             with torch.no_grad():
-                x, y = self.val_loader.dataset.get_run(engine_id)
-                y_hat, z, *_ = self.model(x)
-                history[engine_id]['rul'] = y.numpy()
-                history[engine_id]['rul_hat'] = y_hat.numpy()
+                x, true_rul = self.val_loader.dataset.get_run(engine_id)
+                # Adding Gaussian noise if add_noise_val == True:
+                if self.add_noise_val:
+                    x += torch.empty_like(x).normal_(mean=self.noise_mean, std=self.noise_std)
+                rul_hat, z, *_ = self.model(x)
+                history[engine_id]['rul'] = true_rul.numpy()
+                history[engine_id]['rul_hat'] = rul_hat.numpy()
                 history[engine_id]['z'] = z.numpy()
 
         return history
@@ -152,13 +194,15 @@ class Tester:
         for engine_id in engine_ids:
 
             fig, ax = plt.subplots(nrows=2, ncols=1, sharex=False, figsize=(12, 6))
-            real_rul = history[engine_id]['rul']
+            true_rul = history[engine_id]['rul']
             rul_hat = history[engine_id]['rul_hat']
-            ax[0].plot(real_rul)
+            ax[0].plot(true_rul)
             ax[0].plot(rul_hat)
             ax[0].set_title(f"Engine Unit #{engine_id}")
             ax[0].set_xlabel("Time(Cycle)")
             ax[0].set_ylabel("RUL")
+            ax[0].set_yticks(list(range(0, 130, 25)))
+            ax[0].grid(True)
             for run in engine_ids:
                 z = history[run]['z']
                 targets = history[run]['rul']
@@ -178,15 +222,41 @@ class Tester:
                 img_path = self.path+'/images/'
                 os.makedirs(os.path.dirname(img_path), exist_ok=True)
                 plt.savefig(img_path + str(title) + f"_eng_{engine_id}" + ".png")
+                # Clear the current axes.
+                plt.cla() 
+                # Clear the current figure.
+                plt.clf() 
+                # Closes all the figure windows.
+                plt.close('all')   
+                gc.collect()
+
             if show:
                 plt.show()
+            #else:
+                #plt.close(fig)
 
     def test(self):
         """
         Calls latent space visualization function and engine_run plot function.
         """
-        self.viz_latent_space()
-        self.plot_engine_run()
+        self.viz_latent_space(save=self.save, show=self.show)
+        self.plot_engine_run(save=self.save, show=self.show)
+        # Calculate score and rmse on test dataset:
+        score, rmse = self.get_test_score()
+        # Calculate latent space metric for validation dataset:
+        metric = self.metric.fit_calculate(z=self.z, rul=self.true_rul.ravel())
+        self.metric.plot_zspace(
+            z=self.z, 
+            rul=self.true_rul.ravel(), 
+            path=self.path, 
+            title=str(round(metric, 4)), 
+            save=self.save, 
+            show=self.show
+            )
+        results = {"test_score": score, "test_rmse": rmse, "val_metric": metric}
+        print(f"TEST Score: {score :6.4f}, RMSE: {rmse :6.4f}")
+        with self.safe_open_w(self.path +"/results.json") as f:
+            json.dump(results, f)
 
     def safe_open_w(self, path):
         ''' 
@@ -208,8 +278,8 @@ def main(config):
     train_loader, test_loader, val_loader = preproc.get_dataloaders()
 
     tester = Tester(path, model, val_loader, test_loader)
-    z, t, y = tester.get_z()
-    print(z.shape, y.shape, y.shape, len(val_loader.dataset))
+    z, t, true_rul = tester.get_z()
+    print(z.shape, true_rul.shape, true_rul.shape, len(val_loader.dataset))
     print(tester.get_test_score())
     tester.test()
 

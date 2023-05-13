@@ -1,7 +1,7 @@
 encoder:
   _target_: models.Encoder
   input_size: 21 
-  hidden_size: 256
+  hidden_size: 300
   latent_dim: 2 
   num_layers: 1
   dropout_lstm: 0

@@ -14,22 +14,17 @@ This technique also features in ImageGen 'Photorealistic Text-to-Image Diffusion
 https://arxiv.org/abs/2205.11487
 
 '''
-
-from typing import Dict, Tuple
 from tqdm import tqdm
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-from torch.utils.data import DataLoader
-from torchvision import models, transforms
-from torchvision.datasets import MNIST
-from torchvision.utils import save_image, make_grid
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation, PillowWriter
 import numpy as np
+import os
 
 import random
 import hydra
+from hydra.utils import instantiate
 from metric_dataloader import MetricDataPreprocessor
 
 class ResidualConvBlock(nn.Module):
@@ -344,65 +339,6 @@ class DDPM(nn.Module):
         return x_i, x_i_store
 
 
-    
-
-@hydra.main(version_base=None, config_path="./configs", config_name="config.yaml")
-def check(config):
-    preproc = MetricDataPreprocessor(**config.data_preprocessor)
-    train_loader, test_loader, val_loader = preproc.get_dataloaders()
-
-    model_path = "./outputs/2023-04-22/15-07-36_windowsize_32/rve_model.pt"
-    model_rve = torch.load(model_path).cpu()
-    #print(model_rve)
-
-
-    pairs_mode = train_loader.dataset.return_pairs
-    if pairs_mode:
-        x, pos_x, neg_x, true_rul, _, _ = next(iter(train_loader))
-    
-    input_rve = x[:2,:,:]
-    predicted_rul, z, mean, log_var, x_hat = model_rve(input_rve)
-    
-    m = nn.ReplicationPad2d((0, 11, 0, 0))
-    input_d = m(input_rve)
-
-    print("INPUT SHAPES:", input_rve.shape, input_d.shape, z.shape)
-
-  
-    n_epoch = 1
-    batch_size = 256
-    n_T = 400 # 500
-    device = "cpu"#"cuda:0"
-    z_dim   = 2
-    n_feat = 128 # 128 ok, 256 better (but slower)
-    lrate = 1e-4
-    save_model = False
-    save_dir = './outputs/diffusion_outputs/'
-    ws_test = [0.0, 0.5, 2.0] # strength of generative guidance
-    
-    ddpm = DDPM(
-        nn_model=ContextUnet(
-        in_channels=1, 
-        n_feat=n_feat, 
-        z_dim=z_dim), 
-        betas=(1e-4, 0.02), 
-        n_T=n_T, 
-        device=device, 
-        drop_prob=0.1)
-    
-    loss = ddpm(input_d.unsqueeze(1), z)
-    print(loss)
-    print()
-    print("===========================")
-    print("SAMPLE:")
-    print("===========================")
-    z_samples = torch.rand((3, 2))
-    ddpm.eval()
-    with torch.no_grad():
-        xi, xi_sore = ddpm.sample_cmapss(n_sample=2, size=(1,32,32), device="cpu", z_space_contexts=z_samples, guide_w = 0.0)
-    print("done")
-    print("generated shape: ", xi.shape)
-    print("end")
 
 @hydra.main(version_base=None, config_path="./configs", config_name="config.yaml")
 def train_cmapss(config):
@@ -413,18 +349,23 @@ def train_cmapss(config):
     model_path = "./outputs/2023-04-22/15-07-36_windowsize_32/rve_model.pt"
     model_rve = torch.load(config.diffusion.checkpoint.path)
     #print(model_rve)
+    
+    hydra_cfg = hydra.core.hydra_config.HydraConfig.get()
+    output_dir = hydra_cfg['runtime']['output_dir']
+    print(f"output dir: {output_dir}")
 
   
-    n_epoch = 20
-    batch_size = 256
-    n_T = 500 # 500
-    device = "cuda:0" #"cpu"#
-    z_dim   = 2
-    n_feat = 256 # 128 ok, 256 better (but slower)
-    lrate = 1e-4
-    save_model = True
-    save_dir = './outputs/diffusion_outputs/'
-    ws_test = [0.0, 0.5, 2.0] # strength of generative guidance
+    n_epoch = config.diffusion.ddpm_train.epochs
+    n_T = config.diffusion.ddpm_train.n_T # 500
+    device = config.diffusion.ddpm_train.device #"cuda:0" or "cpu"#
+    z_dim   = config.diffusion.ddpm_train.z_dim
+    n_feat = config.diffusion.ddpm_train.n_feat # 128 ok, 256 better (but slower)
+    lrate = config.diffusion.ddpm_train.lrate #1e-4
+    save_model = config.diffusion.ddpm_train.save_model
+    save_dir = output_dir #'./outputs/diffusion_outputs/'
+    ws_test = config.diffusion.ddpm_train.ws_test #[0.0, 0.5, 2.0]  strength of generative guidance
+    
+    drop_prob = config.diffusion.ddpm_model.drop_prob
     
     ddpm = DDPM(
         nn_model=ContextUnet(
@@ -434,22 +375,27 @@ def train_cmapss(config):
         betas=(1e-4, 0.02), 
         n_T=n_T, 
         device=device, 
-        drop_prob=0.1)
+        drop_prob=drop_prob)
 
     ddpm.to(device)
+    
     model_rve.eval().to(device)
+    for param in model_rve.parameters():
+        param.requires_grad = False
 
     # optionally load a model
     # ddpm.load_state_dict(torch.load("./data/diffusion_outputs/ddpm_unet01_mnist_9.pth"))
 
-    optim = torch.optim.Adam(ddpm.parameters(), lr=lrate)
+    # Instantiating the optimizer:
+    optimizer = instantiate(config.diffusion.optimizer, params=ddpm.parameters())
+    #optimizer = torch.optimizer.Adam(ddpm.parameters(), lr=lrate)
 
     for ep in range(n_epoch):
         print(f'epoch {ep}')
         ddpm.train()
 
         # linear lrate decay
-        optim.param_groups[0]['lr'] = lrate*(1-ep/n_epoch)
+        optimizer.param_groups[0]['lr'] = lrate*(1-ep/n_epoch)
 
         pbar = tqdm(train_loader)
         loss_ema = None
@@ -466,18 +412,19 @@ def train_cmapss(config):
                 m = nn.ReplicationPad2d((0, 11, 0, 0))
                 x_diffusion = m(x)
 
-            optim.zero_grad()
+            optimizer.zero_grad()
             x_diffusion = x_diffusion.unsqueeze(1).to(device)
             context = z.to(device)
             #print(f"diffusion input shape:{x_diffusion.shape} context shape: {context.shape}")
             loss = ddpm(x_diffusion, context)
+            
             loss.backward()
             if loss_ema is None:
                 loss_ema = loss.item()
             else:
                 loss_ema = 0.95 * loss_ema + 0.05 * loss.item()
             pbar.set_description(f"loss: {loss_ema:.4f}")
-            optim.step()
+            optimizer.step()
         
         # for eval, save an image of currently generated samples (top rows)
         # followed by real images (bottom rows)
@@ -497,13 +444,30 @@ def train_cmapss(config):
 
         #print("x_samples shape: ", x_samples.shape)
         #print("z_samples shape: ", z_samples.shape)
+        
+        # Letent space loss:
+        """
+        n_sample = 4 
+        num_columns = z_samples.shape[0]
+        num_rows = n_sample
+        x_gen, x_gen_store =ddpm.sample_cmapss(n_sample=1, size=(1,32,32), device=device, z_space_contexts=z_samples, guide_w = 2.0)
+        print(f"x_gen shape: {x_gen.shape} x_samples shape: {x_samples.shape}")
+        x_gen_unpadded = x_gen[:,:,:,:21].squeeze(1)
+        print(f"x_gen unpadded shape: {x_gen_unpadded.shape} x_samples shape: {x_samples.shape}")
+        _, z_gen, *_ = model_rve(x_gen_unpadded)
+        latent_loss = nn.MSELoss()(z_samples, z_gen)
+        print(latent_loss)
+        """
+        
+        
+        
         ddpm.eval()
         with torch.no_grad():
             n_sample = 4 
             num_columns = z_samples.shape[0]
             num_rows = n_sample
             for w_i, w in enumerate(ws_test):
-                x_gen, x_gen_store =ddpm.sample_cmapss(n_sample=n_sample, size=(1,32,32), device=device, z_space_contexts=z_samples, guide_w = 0.0)
+                x_gen, x_gen_store =ddpm.sample_cmapss(n_sample=n_sample, size=(1,32,32), device=device, z_space_contexts=z_samples, guide_w = w)
 
                 # append some real images at bottom, order by class also
                 x_real = m(x_samples).to(device)
@@ -529,7 +493,9 @@ def train_cmapss(config):
                         #print(i, row, col, row*num_columns+col)
                         #print(i, row, col, row*num_columns+col,"shape item:", x_gen_store[i,(row*num_columns)+col,0].shape)
                         axs[row, col].imshow(x_all[row*num_columns+col,:,:,:21].cpu().squeeze(),vmin=(x_all[:,:,:,:21].min()), vmax=(x_all[:,:,:,:21].max()))
-                plt.savefig(save_dir + f"image_ep{ep}_w{w}.png", dpi=100)
+                img_path = save_dir + '/images/'
+                os.makedirs(os.path.dirname(img_path), exist_ok=True)
+                plt.savefig(img_path + f"image_ep{ep}_w{w}.png", dpi=100)
                 print('saved image at ' + save_dir + f"image_ep{ep}_w{w}.png")
                 plt.close('all')
                 #fig.clf()
@@ -551,14 +517,16 @@ def train_cmapss(config):
                                 plots.append(axs[row, col].imshow(x_gen_store[i,(row*num_columns)+col,0,:,:21],vmin=(x_gen_store[i,:,0,:,:21]).min(), vmax=(x_gen_store[i,:,0,:,:21]).max()))
                         return plots
                     #print("x_gen shape:", x_gen_store.shape)
-                    ani = FuncAnimation(fig, animate_diff, fargs=[x_gen_store],  interval=200, blit=False, repeat=True, frames=x_gen_store.shape[0])    
-                    ani.save(save_dir + f"gif_ep{ep}_w{w}.gif", dpi=100, writer=PillowWriter(fps=5))
+                    ani = FuncAnimation(fig, animate_diff, fargs=[x_gen_store],  interval=200, blit=False, repeat=True, frames=x_gen_store.shape[0])
+                    img_path = save_dir + '/images/'
+                    os.makedirs(os.path.dirname(img_path), exist_ok=True)
+                    ani.save(img_path + f"gif_ep{ep}_w{w}.gif", dpi=100, writer=PillowWriter(fps=5))
                     print('saved image at ' + save_dir + f"gif_ep{ep}_w{w}.gif")
                     plt.close('all')
         # optionally save model
         if save_model and ep == int(n_epoch-1):
-            torch.save(ddpm.state_dict(), save_dir + f"model_{ep}.pth")
-            print('saved model at ' + save_dir + f"model_{ep}.pth")
+            torch.save(ddpm.state_dict(), save_dir + f"/model_{ep}.pth")
+            print('saved model at ' + save_dir + f"/model_{ep}.pth")
 
 
 if __name__ == "__main__":

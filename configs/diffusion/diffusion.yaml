@@ -7,7 +7,16 @@ data_preprocessor:
   alpha: 1
   dir_path: './CMAPSSData/'
   fix_seed: ${random_seed.fix}
-  downsample_healthy: True
+
+  downsample_healthy_train: True
+  downsample_healthy_validation: False
+  downsample_healthy_test: False
+  downsample_healthy_train_p: 0.9
+  downsample_healthy_validation_p: 0.8
+  downsample_healthy_test_p: 0
+  downsample_rul_threshold_train: 40
+  downsample_rul_threshold_validation: False
+  downsample_rul_threshold_test: False
 
   train_ds_mode: "train"
   train_ds_return_pairs: False
@@ -27,7 +36,7 @@ data_preprocessor:
   val_ds_max_eps: 10
   val_ds_triplet_healthy_rul: 120
 
-  train_dl_batch_size: 128
+  train_dl_batch_size: 64
   train_dl_shuffle: True 
   train_dl_num_workers: 4
 
@@ -40,27 +49,27 @@ data_preprocessor:
   val_dl_num_workers: 4
 
 checkpoint: 
-  path: "./outputs/2023-04-22/15-07-36_windowsize_32/rve_model.pt"
+  path: "./multirun/2023-05-11/23-34-44/19/best_rve_model.pt"
 
 checkpoint_ddpm:
-  path: "./outputs/2023-05-01/18-44-25/model_29.pth"
+  path: "./outputs/2023-05-13/02-05-52/model_99.pth"
 
 ddpm_model:
   drop_prob: 0.1
 
 optimizer:
   _target_: "torch.optim.Adam"
-  lr: 1e-3
+  lr: 3e-3
 
 ddpm_train:
-  epochs: 30
+  epochs: 100
   n_T: 500 # 500
   device:  "cuda:0" #"cuda:0"
   z_dim:   2
-  n_feat: 32 # 128 ok, 256 better (but slower)
+  n_feat: 64 # 128 ok, 256 better (but slower)
   lrate: ${diffusion.optimizer.lr}
   save_model: True
-  ws_test: [2.0] # strength of generative guidance
+  ws_test: [1.0, 2.0] # strength of generative guidance
 
 
 context_unet_model:

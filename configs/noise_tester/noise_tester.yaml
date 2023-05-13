@@ -1,0 +1,6 @@
+rve_checkpoint:
+  path: "./outputs/08-33-13_rve_checkpoint_2/rve_model.pt"
+
+means: [0]
+stds: [0, 0.1, 0.25, 0.5]
+n_runs: 10

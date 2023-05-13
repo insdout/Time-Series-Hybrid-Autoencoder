@@ -8,6 +8,7 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 import torch.nn as nn
+import gc
 
 import hydra
 from omegaconf import DictConfig, OmegaConf
@@ -39,8 +40,9 @@ class Trainer:
         return score
 
     def __init__(self, model, optimizer, train_loader, val_loader, test_loader, n_epochs, total_loss, validate,
-                 save_model, save_history, verbose=True, device=None):
+                 save_model, save_history, add_noise_train=False, add_noise_val=False, noise_mean=0, noise_std=1, scheduler=None, verbose=True, device=None):
         self.optimizer = optimizer
+        self.scheduler = scheduler
         self.train_loader = train_loader
         self.val_loader = val_loader
         self.test_loader = test_loader
@@ -56,6 +58,10 @@ class Trainer:
         self.validate = validate
         self.save_model = save_model
         self.save_history = save_history
+        self.add_noise_train = add_noise_train
+        self.add_noise_val = add_noise_val
+        self.noise_mean = noise_mean
+        self.noise_std = noise_std
         self.log = logging.getLogger(__name__)
 
     def train_epoch(self):
@@ -73,6 +79,10 @@ class Trainer:
             # anchor, positive and negative:
             if pairs_mode:
                 x, pos_x, neg_x, true_rul, _, _ = data
+                if self.add_noise_train:
+                        x += torch.empty_like(x).normal_(mean=self.noise_mean, std=self.noise_std)
+                        pos_x += torch.empty_like(pos_x).normal_(mean=self.noise_mean, std=self.noise_std)
+                        neg_x += torch.empty_like(neg_x).normal_(mean=self.noise_mean, std=self.noise_std)
                 x = x.to(self.device)
                 true_rul = true_rul.to(self.device)
                 pos_x = pos_x.to(self.device)
@@ -96,6 +106,8 @@ class Trainer:
             # If no Triplet loss will be used, the dataset should return 1 datapoint:
             else:
                 x, true_rul = data
+                if self.add_noise_train:
+                        x += torch.empty_like(x).normal_(mean=self.noise_mean, std=self.noise_std)
                 x, true_rul = x.to(self.device), true_rul.to(self.device)
                 predicted_rul, z, mean, log_var, x_hat = self.model(x)
                 # Computing the total loss:
@@ -116,6 +128,13 @@ class Trainer:
             # Updating the history dictionary:
             for key in loss_dict:
                 epoch_loss[key].append(loss_dict[key].item() * len(true_rul))
+        
+        # Updating learning rate if scheduler != None:
+        if self.scheduler:
+                self.scheduler.step()
+                lr = self.optimizer.param_groups[0]["lr"]
+                self.log.info(f"learning_rate: {lr}")
+        # Updating history dictionary:
         for key in loss_dict:
             self.history["Train_" + key].append(sum(epoch_loss[key]) / batch_len)
 
@@ -132,6 +151,10 @@ class Trainer:
 
                 if pairs_mode:
                     x, pos_x, neg_x, y, _, _ = data
+                    if self.add_noise_val:
+                        x += torch.empty_like(x).normal_(mean=self.noise_mean, std=self.noise_std)
+                        pos_x += torch.empty_like(pos_x).normal_(mean=self.noise_mean, std=self.noise_std)
+                        neg_x += torch.empty_like(neg_x).normal_(mean=self.noise_mean, std=self.noise_std)
                     x = x.to(self.device)
                     y = y.to(self.device)
                     pos_x = pos_x.to(self.device)
@@ -146,6 +169,8 @@ class Trainer:
                 else:
                     x, y = data
                     x, y = x.to(self.device), y.to(self.device)
+                    if self.add_noise_val:
+                        x += torch.empty_like(x).normal_(mean=self.noise_mean, std=self.noise_std)
                     y_hat, z, mean, log_var, x_hat = self.model(x)
                     loss_dict = self.total_loss(mean=mean, log_var=log_var, y=y, y_hat=y_hat, x=x, x_hat=x_hat, z=z)
 
@@ -162,6 +187,7 @@ class Trainer:
         """
         hydra_cfg = hydra.core.hydra_config.HydraConfig.get()
         output_dir = hydra_cfg['runtime']['output_dir']
+        best_rmse = float("inf")
         if n_epochs:
             self.n_epochs = n_epochs
         for epoch in range(self.n_epochs):
@@ -171,22 +197,29 @@ class Trainer:
             if self.verbose:
                 for key in self.history:
                     self.log.info(f"Epoch:{epoch} {key}: {self.history[key][-1] :3.3f}")
-            score, rmse = self.get_test_score()
-            self.history["Test_score"].append(score)
-            self.history["Test_RMSE"].append(rmse)
+            score, rmse = self.get_dataset_score(self.val_loader)
+            self.history["Validation_score"].append(score)
+            self.history["Validation_RMSE"].append(rmse)
             writer.add_scalar("Score/Test", score, epoch)
             writer.add_scalar("RMSE/Test", rmse, epoch)
+            print(f"rmse:{rmse :6.3f} best rmse: {best_rmse :6.3f}")
+            if rmse < best_rmse:
+                best_rmse = rmse
+                if self.save_model:
+                    torch.save(self.model, output_dir + "/best_rve_model.pt")
+                    print(f"Saved best model, rmse: {rmse :6.3f} at {output_dir}/best_rve_model.pt")
+
         if self.save_model:
             torch.save(self.model, output_dir + "/rve_model.pt")
             print("Saved", output_dir + "/rve_model.pt")
         if self.save_history:
             with open(output_dir + "/history.json", 'w') as fp:
                 json.dump(self.history, fp)
-        self.plot_learning_curves(output_dir)
+        self.plot_learning_curves(output_dir, show=False)
         writer.flush()
         writer.close()
 
-    def get_test_score(self):
+    def get_dataset_score(self, datasetloader):
         """
         Calculates score and RMSE on test dataset
         :return: score and RMSE, int
@@ -194,9 +227,13 @@ class Trainer:
         rmse = 0
         score = 0
         self.model.eval()
-        for batch_idx, data in enumerate(self.test_loader):
+        pairs_mode = datasetloader.dataset.return_pairs
+        for batch_idx, data in enumerate(datasetloader):
             with torch.no_grad():
-                x, y = data
+                if pairs_mode:
+                    x, _, _, y, _, _ = data
+                else:
+                    x, y = data
                 x, y = x.to(self.device), y.to(self.device)
 
                 y_hat, *_ = self.model(x)
@@ -235,11 +272,11 @@ class Trainer:
         ax[2][0].plot(history['Train_TripletLoss'], label='train triplet loss')
         ax[2][0].plot(history['Val_TripletLoss'], label='val triplet loss')
 
-        ax[2][1].plot(history['Test_score'], label='Test Score')
+        ax[2][1].plot(history['Validation_score'], label='Valisation Score')
         ax2 = ax[2][1].twinx()
-        ax2.plot(history['Test_RMSE'], color='orange', label='Test RMSE')
-        ax[2][1].set_ylabel('Test Score', color='blue')
-        ax2.set_ylabel('Test RMSE', color='orange')
+        ax2.plot(history['Validation_RMSE'], color='orange', label='Val RMSE')
+        ax[2][1].set_ylabel('Validation Score', color='blue')
+        ax2.set_ylabel('Validation RMSE', color='orange')
         lines, labels = ax[2][1].get_legend_handles_labels()
         lines2, labels2 = ax2.get_legend_handles_labels()
         ax2.legend(lines + lines2, labels + labels2, loc='upper right')
@@ -266,6 +303,13 @@ class Trainer:
             img_path = path + '/images/'
             os.makedirs(os.path.dirname(img_path), exist_ok=True)
             plt.savefig(img_path + "Training Curves" + ".png")
+            # Clear the current axes.
+            plt.cla() 
+            # Clear the current figure.
+            plt.clf() 
+            # Closes all the figure windows.
+            plt.close('all')   
+            gc.collect()
         if show:
             plt.show()
 
@@ -306,29 +350,43 @@ def main(config):
     # Instantiating the optimizer:
     optimizer = instantiate(config.optimizer, params=model_rve.parameters())
 
+    # Instantiating the learning rate scheduler:
+    if config.scheduler.mode.enable:
+        scheduler = instantiate(config.scheduler.self, optimizer=optimizer)
+    else:
+        scheduler = None
+
     # Instantiating the TotalLoss class:
     total_loss = TotalLoss(config)
 
     # Initializing the trainer:
-    trainer = Trainer(**config.trainer,
+    trainer = Trainer(**config.trainer.trainer,
                       model=model_rve,
                       optimizer=optimizer,
                       train_loader=train_loader,
                       val_loader=val_loader,
                       test_loader=test_loader,
                       total_loss=total_loss,
+                      scheduler=scheduler
                       )
     trainer.train()
 
     # Loading trained and saved model from previous step:
     path = output_dir
-    model = torch.load(path + "/rve_model.pt")
+    model = torch.load(path + "/best_rve_model.pt")
 
     # Running test utils:
-    tester = Tester(path, model, val_loader, test_loader)
-    z, t, y = tester.get_z()
-    print(z.shape, y.shape, y.shape, len(val_loader.dataset))
-    print(tester.get_test_score())
+    rul_threshold = config.knnmetric.rul_threshold
+    n_neighbors = config.knnmetric.n_neighbors
+    tester = Tester(
+        **config.trainer.tester, 
+        path=path, 
+        model=model, 
+        val_loader=val_loader, 
+        test_loader=test_loader, 
+        rul_threshold=rul_threshold, 
+        n_neighbors=n_neighbors
+        )
     tester.test()
 
 

@@ -1,5 +1,14 @@
+trainer:   
     validate: True
     save_model: True
     save_history: True
     n_epochs: 30
     verbose: True
+    add_noise_train: False
+    add_noise_val: False
+    noise_mean: 0 
+    noise_std: 1
+tester:
+    save: True
+    show: False
+    

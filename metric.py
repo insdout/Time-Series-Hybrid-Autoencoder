@@ -40,7 +40,7 @@ class KNNRULmetric:
         """
         assert self.fitted == True, "You should call fit first."
         if rul.max() > 1:
-            rul_binary = np.where(rul > self.rul_threshold, 1, 0)
+            rul_binary = np.where(rul >= self.rul_threshold, 1, 0)
         else:
             rul_binary = rul
         num_points = rul_binary.shape[0]
@@ -81,7 +81,7 @@ class KNNRULmetric:
         """
         assert self.fitted == True, "You should call fit first."
         if rul.max() > 1:
-            rul_binary = np.where(rul > self.rul_threshold, 1, 0)
+            rul_binary = np.where(rul >= self.rul_threshold, 1, 0)
         else:
             rul_binary = rul
         num_points = rul_binary.shape[0]
@@ -93,7 +93,7 @@ class KNNRULmetric:
 
         fig, ax = plt.subplots(nrows=1, ncols=2, sharex=True, sharey=True, figsize=(10, 5))
     
-        pa = ax[0].scatter(z[:, 0], z[:, 1], c=rul, s=5, alpha=1)
+        pa = ax[0].scatter(z[:, 0], z[:, 1], c=rul, s=3, alpha=1)
         divider = make_axes_locatable(ax[0])
         ccx = divider.append_axes("right", size="5%", pad=0.05)
         plt.colorbar(pa, cax=ccx)
@@ -103,7 +103,7 @@ class KNNRULmetric:
         
         colors = np.array(["green", "red", "orange"])
         alphas = [1, 1, 1]
-        sizes = [5, 8, 8]
+        sizes = [3, 7, 7]
         for i, error_type in enumerate([0,-1, 1]):
             mask = (type_errors == error_type)
             ax[1].scatter(z[mask, 0], z[mask, 1], c=colors[type_errors[mask]], s=sizes[i], alpha=alphas[i])

@@ -59,6 +59,14 @@ class Encoder(nn.Module):
 
         last_hidden_fwd = last_hidden[0]
         last_hidden_bwd = last_hidden[1]
+
+        TODO: check if it same as
+        # Pass the input through the LSTM
+        output, (h_n, c_n) = lstm(input_data, (h0, c0))
+        Extract the last forward and backward outputs
+        last_forward_output = output[:, -1, :hidden_size]
+        last_backward_output = output[:, 0, hidden_size:]
+
         """
         h_n = h_n.view(self.num_layers, self.num_directions, batch_size, self.hidden_size)
         if self.bidirectional:
@@ -266,3 +274,61 @@ class RVEAttention_MP(nn.Module):
             return y_hat, z, mean, log_var, x_hat
 
         return y_hat, z, mean, log_var
+    
+
+class OriginalEncoder(nn.Module):
+    def __init__(self, input_dim, intermediate_dim, latent_dim):
+        super(OriginalEncoder, self).__init__()
+        self.hidden_size = intermediate_dim
+        self.lstm = nn.LSTM(input_size=input_dim, hidden_size=intermediate_dim, bidirectional=True, batch_first=True)
+        self.mu = nn.Linear(in_features=2*intermediate_dim, out_features=latent_dim)
+        self.sigma = nn.Linear(in_features=2*intermediate_dim, out_features=latent_dim)
+
+    def reparameterization(self, mean, log_var):
+        epsilon = torch.randn_like(log_var).to(log_var.device)
+        z = mean + torch.exp(0.5 * log_var) * epsilon
+        return z
+    
+    def forward(self, x):
+        batch_size = x.shape[0]
+        output, (h_n, c_n) = self.lstm(x)
+        # Extract the last forward and backward outputs
+        last_forward_output = output[:, -1, :self.hidden_size]
+        last_backward_output = output[:, 0, self.hidden_size:]
+
+        # Concatenate the last forward and backward outputs
+        concatenated_output = torch.cat((last_forward_output, last_backward_output), dim=1)
+        mean = self.mu(concatenated_output)
+        log_var = self.sigma(concatenated_output)
+
+        z = self.reparameterization(mean, log_var)
+        return z, mean, log_var
+
+class OriginalDecoder(nn.Module):
+    def __init__(self):
+        super(OriginalDecoder, self).__init__()
+        '''
+        Dummy module
+        '''
+        pass
+
+class OriginalRVE(nn.Module):
+    def __init__(self, encoder, latent_dim, decoder=None):
+        super(OriginalRVE, self).__init__()
+        self.decode_mode = False 
+        self.encoder = encoder
+        self.regressor = nn.Sequential(
+            nn.Linear(in_features=latent_dim, out_features=200), 
+            nn.Tanh(), 
+            nn.Linear(in_features=200, out_features=1)
+            )
+    
+    def forward(self, x):
+        z, mean, log_var = self.encoder(x)
+        y_hat = self.regressor(z)
+        return y_hat, z, mean, log_var, x
+
+
+
+
+    
