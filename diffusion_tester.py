@@ -114,7 +114,6 @@ def test(config):
     save_model = config.diffusion.ddpm_train.save_model
     save_dir = output_dir #'./outputs/diffusion_outputs/'
     ws_test = config.diffusion.ddpm_train.ws_test #[0.0, 0.5, 2.0]  strength of generative guidance
-    
     drop_prob = config.diffusion.ddpm_model.drop_prob
     
     ddpm = DDPM(
@@ -132,15 +131,17 @@ def test(config):
 
     val_ids = val_loader.dataset.ids
     print(val_loader.dataset.ids)
-    engine_run = get_engine_runs_diffusion(
+    engine_runs = get_engine_runs_diffusion(
         rve_model=model_rve, 
         diffusion_model=ddpm, 
         dataloader=val_loader,
-        num_samples=4,
-        w=2,
-        quantile=0.25, 
-        engine_id=77)
-    plot_engine_run_diff(engine_run, img_path=output_dir, save=True)
+        num_samples=config.diffusion.diffusion_tester.num_samples,
+        w=config.diffusion.diffusion_tester.w,
+        quantile=config.diffusion.diffusion_tester.quantile,
+        mode=config.diffusion.diffusion_tester.mode
+        )
+    for engine in engine_runs.keys():
+        plot_engine_run_diff(engine_runs,engine_id=engine, img_path=output_dir, save=True)
 
 if __name__ == "__main__":
     test()
