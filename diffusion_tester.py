@@ -4,6 +4,7 @@ from plot_utils import plot_engine_run_diff, plot_engine_run_diff_decision_bound
 from cond_diffusion_original import ContextUnet, DDPM
 from metric_dataloader import MetricDataPreprocessor
 import hydra
+import pickle
 
 
 def get_engine_runs_diffusion(
@@ -140,6 +141,9 @@ def test(config):
         quantile=config.diffusion.diffusion_tester.quantile,
         mode=config.diffusion.diffusion_tester.mode
         )
+    
+    with open("engine_runs_diff.pickle", 'wb') as handle:
+        pickle.dump(engine_runs, handle)
     for engine in engine_runs.keys():
         plot_engine_run_diff(engine_runs,engine_id=engine, img_path=output_dir, save=True)
 

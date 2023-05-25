@@ -8,8 +8,7 @@ import torch.nn as nn
 import seaborn as sns
 import os 
 import pandas as pd
-
-
+import gc
 
 
 def get_z(model, data_loader):
@@ -349,43 +348,58 @@ def plot_engine_run_diff(
     if engine_id is None:
         engine_id = random.choice(list(engine_ids))
 
-    fig, ax = plt.subplots(nrows=2, ncols=1, sharex=False, figsize=(12, 6))
+    fig, ax = plt.subplots(nrows=2, ncols=1, sharex=False, figsize=(12, 8))
     real_rul = history[engine_id]['rul']
     rul_hat = history[engine_id]['rul_hat']
     rul_hat_diff =  history[engine_id]['rul_hat_diff']
-    ax[0].plot(real_rul)
-    ax[0].plot(rul_hat)
-    ax[0].plot(rul_hat_diff, color="darkviolet")
-    ax[0].set_title(f"Engine Unit #{engine_id}")
-    ax[0].set_xlabel("Time(Cycle)")
-    ax[0].set_ylabel("RUL")
+    ax[0].plot(real_rul, linewidth=2)
+    ax[0].plot(rul_hat, linewidth=2)
+    ax[0].plot(rul_hat_diff, color="darkviolet", linewidth=2)
+    ax[0].set_title(f"Unit Number {engine_id}", fontsize=18)
+    ax[0].set_xlabel("Time(Cycle)", fontsize=18)
+    ax[0].set_ylabel("RUL", fontsize=18)
+    ax[0].grid(True)
     for run in engine_ids:
         z = history[run]['z']
         targets = history[run]['rul']
-        pa = ax[1].scatter(z[:, 0], z[:, 1], c=targets, s=1.5)
+        pa = ax[1].scatter(z[:, 0], z[:, 1], c=targets, s=15)
     cba = plt.colorbar(pa, shrink=1.0)
-    cba.set_label("RUL")
+    cba.set_label("RUL", fontsize=18)
+    cba.set_ticks(np.arange(0, 126, 20))
+    cba.ax.tick_params(labelsize=14)
 
     z = history[engine_id]['z']
     targets = history[engine_id]['rul']
-    pb = ax[1].scatter(z[:, 0], z[:, 1], c=targets, s=10, cmap=plt.cm.gist_heat_r)
+    pb = ax[1].scatter(z[:, 0], z[:, 1], c=targets, s=25, cmap=plt.cm.gist_heat_r)
     cbb = plt.colorbar(pb, shrink=1.0)
-    cbb.set_label(f"Engine #{engine_id} RUL")
-    ax[1].set_xlabel("z - dim 1")
-    ax[1].set_ylabel("z - dim 2")
+    cbb.set_label(f"Unit #{engine_id} RUL", fontsize=18)
+    cbb.set_ticks(np.arange(0, 126, 20))
+    cbb.ax.tick_params(labelsize=14)
+    ax[1].set_xlabel("z - dim 1", fontsize=18)
+    ax[1].set_ylabel("z - dim 2", fontsize=18)
     
     z_diff = history[engine_id]['z_diff']
     targets = history[engine_id]['rul']
-    pb2 = ax[1].scatter(z_diff[:, 0], z_diff[:, 1], c=targets, s=10, cmap=plt.cm.cool_r, alpha=1)
+    pb2 = ax[1].scatter(z_diff[:, 0], z_diff[:, 1], c=targets, s=30, cmap=plt.cm.cool_r, alpha=1)
     cbb2 = plt.colorbar(pb2, shrink=1.0)
-    cbb2.set_label(f"Engine #{engine_id} RUL by diffusion")
-    ax[1].set_xlabel("z - dim 1")
-    ax[1].set_ylabel("z - dim 2")
+    cbb2.set_ticks(np.arange(0, 126, 20))
+    cbb2.ax.tick_params(labelsize=16)
+    cbb2.set_label(f"Engine #{engine_id} RUL by diffusion", fontsize=18)
+    ax[1].set_xlabel("z - dim 1", fontsize=18)
+    ax[1].set_ylabel("z - dim 2", fontsize=18)
     
     if save:
-        #img_path ="./outputs/diffusion_outputs/images/" 
-        os.makedirs(os.path.dirname(img_path), exist_ok=True)
-        plt.savefig(img_path + str(title) + f"_eng_{engine_id}" + ".png")
+        #img_path ="./outputs/diffusion_outputs/images/"
+        images_dir  =  os.path.join(img_path, "images")
+        os.makedirs(images_dir, exist_ok=True)
+        file_name =  str(title) + f"_eng_{engine_id}" + ".png"
+        plt.tight_layout()
+        plt.savefig(os.path.join(images_dir, file_name))
+        print(f"Saved image at {os.path.join(images_dir, file_name)}")
+        plt.cla()
+        plt.clf()
+        plt.close('all')
+        gc.collect()
     if show:
         plt.show()
 
@@ -393,7 +407,7 @@ def plot_engine_run_diff(
 def plot_engine_run_diff_decision_boundary(
     rve_model, history, 
     img_path="./outputs/diffusion_outputs/images_decision/", 
-    engine_id=None, title="engine_run", 
+    engine_id=None, title="engine_run_boundary", 
     save=True,
     show=False
     ):
@@ -412,20 +426,23 @@ def plot_engine_run_diff_decision_boundary(
     if engine_id is None:
         engine_id = random.choice(list(engine_ids))
 
-    fig, ax = plt.subplots(nrows=2, ncols=1, sharex=False, figsize=(12, 6))
+    fig, ax = plt.subplots(nrows=2, ncols=1, sharex=False, figsize=(12, 8))
     real_rul = history[engine_id]['rul']
     rul_hat = history[engine_id]['rul_hat']
     rul_hat_diff =  history[engine_id]['rul_hat_diff']
-    ax[0].plot(real_rul)
-    ax[0].plot(rul_hat)
-    ax[0].plot(rul_hat_diff, color="darkviolet")
-    ax[0].set_title(f"Engine Unit #{engine_id}")
-    ax[0].set_xlabel("Time(Cycle)")
-    ax[0].set_ylabel("RUL")
+    ax[0].plot(real_rul, linewidth=2)
+    ax[0].plot(rul_hat, linewidth=2)
+    ax[0].plot(rul_hat_diff, color="darkviolet", linewidth=2)
+    ax[0].set_title(f"Unit Number {engine_id}", fontsize=18)
+    ax[0].set_xlabel("Time(Cycle)", fontsize=18)
+    ax[0].set_ylabel("RUL", fontsize=18)
+    ax[0].tick_params(axis="both", which="major", labelsize=18)
+    ax[0].tick_params(axis="both", which="minor", labelsize=18)
+    ax[0].grid(True)
 
     with torch.no_grad():
-        z1_lim = [-1.5, 4]
-        z2_lim = [-2, 6]
+        z1_lim = [-2.5, 6]
+        z2_lim = [-2.5, 6]
 
         h = 0.01
         rve_model.eval()
@@ -441,20 +458,36 @@ def plot_engine_run_diff_decision_boundary(
         levels = list(range(125))
         pb = ax[1].contourf(xx, yy, rul_hat, levels=levels)
         cbb = plt.colorbar(pb, shrink=1.0)
-        cbb.set_label("RVE Regressor RUL decision")
+        cbb.set_ticks(np.arange(0, 126, 20))
+        cbb.set_label("RVE Regressor RUL decision", fontsize=18)
+        cbb.ax.tick_params(labelsize=14)
         
         z_diff = history[engine_id]['z_diff']
         targets = history[engine_id]['rul']
-        pb2 = ax[1].scatter(z_diff[:, 0], z_diff[:, 1], c=targets, s=5, cmap=plt.cm.cool, alpha=1)
+        pb2 = ax[1].scatter(z_diff[:, 0], z_diff[:, 1], c=targets, s=30, cmap=plt.cm.cool, alpha=1)
+        ax[1].set_xlim((z1_lim[0], z1_lim[1]))
+        ax[1].set_ylim((z2_lim[0], z2_lim[1]))
         cbb2 = plt.colorbar(pb2, shrink=1.0)
-        cbb2.set_label(f"Engine #{engine_id} RUL by diffusion")
-        ax[1].set_xlabel("z - dim 1")
-        ax[1].set_ylabel("z - dim 2")
-    
+        cbb2.set_label(f"Engine #{engine_id} RUL by diffusion", fontsize=18)
+        cbb2.ax.tick_params(labelsize=14)
+        cbb2.set_ticks(np.arange(0, 126, 20))
+        ax[1].set_xlabel("z - dim 1", fontsize=18)
+        ax[1].set_ylabel("z - dim 2", fontsize=18)
+        ax[1].tick_params(axis="both", which="major", labelsize=18)
+        ax[1].tick_params(axis="both", which="minor", labelsize=18)   
+        
     if save:
         #img_path ="./outputs/diffusion_outputs/images_decision/" 
-        os.makedirs(os.path.dirname(img_path), exist_ok=True)
-        plt.savefig(img_path + str(title) + f"_eng_{engine_id}" + ".png")
+        images_dir  =  os.path.join(img_path, "images")
+        os.makedirs(images_dir, exist_ok=True)
+        file_name =  str(title) + f"_eng_{engine_id}" + ".png"
+        plt.tight_layout()
+        plt.savefig(os.path.join(images_dir, file_name))
+        print(f"Saved image at {os.path.join(images_dir, file_name)}")
+        plt.cla()
+        plt.clf()
+        plt.close('all')
+        gc.collect()
     if show:
         plt.show()
     
