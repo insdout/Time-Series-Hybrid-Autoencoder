@@ -127,7 +127,7 @@ class Tester:
                 predicted_rul.append(y_hat.numpy())
         return np.concatenate(z_space), np.concatenate(true_rul), np.concatenate(predicted_rul)
 
-    def viz_latent_space(self, title='Final', save=True, show=True):
+    def viz_latent_space(self, title='', save=True, show=True):
         """
         Plots latent space.
         :param title: Title of the plot, str
@@ -138,13 +138,17 @@ class Tester:
         targets = self.true_rul
         plt.figure(figsize=(8, 4))
         if len(targets) > 0:
-            plt.scatter(z[:, 0], z[:, 1], c=targets, s=1.5)
+            pp = plt.scatter(z[:, 0], z[:, 1], c=targets, s=8)
         else:
-            plt.scatter(z[:, 0], z[:, 1])
-        plt.xlabel('z - dim 1')
-        plt.ylabel('z - dim 2')
-        plt.colorbar()
-        plt.title(title)
+            pp = plt.scatter(z[:, 0], z[:, 1])
+        plt.xlabel('z - dim 1', fontsize=14)
+        plt.ylabel('z - dim 2', fontsize=14)
+        plt.xticks(fontsize=14)
+        plt.yticks(fontsize=14)
+        cbr = plt.colorbar(pp)
+ 
+        cbr.ax.tick_params(labelsize=14) 
+        plt.title("Latent Space", fontdict={'fontsize':14})
         if save:
             images_dir  =  os.path.join(self.path, "images")
             os.makedirs(images_dir, exist_ok=True)
@@ -195,30 +199,36 @@ class Tester:
 
         for engine_id in engine_ids:
 
-            fig, ax = plt.subplots(nrows=2, ncols=1, sharex=False, figsize=(12, 6))
+            fig, ax = plt.subplots(nrows=2, ncols=1, sharex=False, figsize=(12, 8)) #figsize=(12, 6)
             true_rul = history[engine_id]['rul']
             rul_hat = history[engine_id]['rul_hat']
-            ax[0].plot(true_rul)
-            ax[0].plot(rul_hat)
-            ax[0].set_title(f"Engine Unit #{engine_id}")
-            ax[0].set_xlabel("Time(Cycle)")
-            ax[0].set_ylabel("RUL")
+            ax[0].plot(true_rul, linewidth=2)
+            ax[0].plot(rul_hat, linewidth=2)
+            ax[0].set_title(f"Unit Number {engine_id}", fontsize=18)
+            ax[0].set_xlabel("Time(Cycle)", fontsize=18)
+            ax[0].set_ylabel("RUL", fontsize=18)
             ax[0].set_yticks(list(range(0, 130, 25)))
+            ax[0].tick_params(axis='both', which='major', labelsize=18)
+            ax[0].tick_params(axis='both', which='minor', labelsize=18)
             ax[0].grid(True)
             for run in engine_ids:
                 z = history[run]['z']
                 targets = history[run]['rul']
-                pa = ax[1].scatter(z[:, 0], z[:, 1], c=targets, s=1.5)
+                pa = ax[1].scatter(z[:, 0], z[:, 1], c=targets, s=15)
             cba = plt.colorbar(pa, shrink=1.0)
-            cba.set_label("RUL")
+            cba.set_label("RUL", fontsize=18)
+            cba.ax.tick_params(labelsize=16) #14
 
             z = history[engine_id]['z']
             targets = history[engine_id]['rul']
-            pb = ax[1].scatter(z[:, 0], z[:, 1], c=targets, s=15, cmap=plt.cm.gist_heat_r)
+            pb = ax[1].scatter(z[:, 0], z[:, 1], c=targets, s=30, cmap=plt.cm.gist_heat_r)
             cbb = plt.colorbar(pb, shrink=1.0)
-            cbb.set_label(f"Engine #{engine_id} RUL")
-            ax[1].set_xlabel("z - dim 1")
-            ax[1].set_ylabel("z - dim 2")
+            cbb.set_label(f"Unit #{engine_id} RUL", fontsize=18)
+            cbb.ax.tick_params(labelsize=16) #14
+            ax[1].set_xlabel("z - dim 1", fontsize=18)
+            ax[1].set_ylabel("z - dim 2", fontsize=18)
+            ax[1].tick_params(axis='both', which='major', labelsize=18)
+            ax[1].tick_params(axis='both', which='minor', labelsize=18)
 
             if save:
                 images_dir  =  os.path.join(self.path, "images")
