@@ -11,6 +11,13 @@ import hydra
 from omegaconf import  OmegaConf
 
 
+# see https://pytorch.org/docs/stable/notes/randomness.html
+def seed_worker(worker_id):
+    worker_seed = torch.initial_seed() % 2**32
+    np.random.seed(worker_seed)
+    random.seed(worker_seed)
+    
+    
 class MetricDataPreprocessor:
     """
     CMAPSS dataset class, handles data loading, preprocessing and sliding window slicing.
@@ -287,17 +294,11 @@ class MetricDataPreprocessor:
         val_dataset = MetricDataset(dataset=val_df, **dataset_kwargs, **self.val_ds_kwargs)
         return train_dataset, test_dataset, val_dataset
 
-    def get_dataloaders(self):
+    def get_dataloaders(self, seed_worker=seed_worker):
         """
         Calls dataset generation method and return 3 DataSets.
         :return: Train, Test, Validation DataLoaders
         """
-
-        # see https://pytorch.org/docs/stable/notes/randomness.html
-        def seed_worker(worker_id):
-            worker_seed = torch.initial_seed() % 2**32
-            np.random.seed(worker_seed)
-            random.seed(worker_seed)
 
         if self.fix_seed:
             g = torch.Generator()
@@ -306,7 +307,7 @@ class MetricDataPreprocessor:
             seed_worker = None
             g = None
         
-        print(f"fix dataloader: {self.fix_seed} seed_worker: {seed_worker} g: {g}")
+        print(f"fix dataloader: {self.fix_seed}")
 
         train_dataset, test_dataset, val_dataset = self.get_datasets()
         train_loader = DataLoader(dataset=train_dataset, worker_init_fn=seed_worker, generator=g, **self.train_dl_kwargs)
@@ -481,6 +482,8 @@ class MetricDataset(Dataset):
         mask = self.run_id == run_id
         return torch.FloatTensor(self.sequences[mask]), torch.FloatTensor(self.targets[mask])
 
+
+    
 
 @hydra.main(version_base=None, config_path="./configs", config_name="config.yaml")
 def main(config):

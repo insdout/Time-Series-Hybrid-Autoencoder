@@ -8,6 +8,7 @@ trainer:
     add_noise_val: False
     noise_mean: 0 
     noise_std: 1
+    device: "cuda"
 tester:
     save: True
     show: False

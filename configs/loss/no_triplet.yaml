@@ -1,0 +1,23 @@
+total_loss:
+  - ReconLoss
+  - RegLoss
+  - TripletLoss
+  - KLLoss
+ReconLoss:
+  _target_: loss.ReconLoss
+  weight: 1
+  z_dims: False
+RegLoss:
+  _target_: loss.RegLoss
+  weight: 1
+  z_dims: False
+TripletLoss:
+  _target_: loss.TripletLoss
+  weight: 0
+  z_dims: False
+  margin: 0.4
+  p: 2
+KLLoss:
+  _target_: loss.KLLoss
+  weight: 1
+  z_dims: False

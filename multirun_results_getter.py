@@ -105,5 +105,5 @@ def main(multirun_path):
     print(df.head())
 
 if __name__ == "__main__":
-    multirun_path = "./multirun/2023-05-11/23-34-44/"
+    multirun_path = "./multirun/2023-05-23/19-41-35/"
     main(multirun_path)

@@ -5,7 +5,7 @@ encoder:
   latent_dim: 2 
   num_layers: 1
   dropout_lstm: 0
-  dropout: 0.5
+  dropout: 0.2
   bidirectional: False
 decoder:
   _target_: models.Decoder
@@ -16,9 +16,9 @@ decoder:
   num_layers: ${model.encoder.num_layers}
   bidirectional: ${model.encoder.bidirectional}
   dropout_lstm: 0
-  dropout_layer: 0.5
+  dropout_layer: 0.8
 rve:
   _target_: models.RVE
   reconstruct: True
-  dropout_regressor: 0.8
+  dropout_regressor: 0.5
   regression_dims: 100

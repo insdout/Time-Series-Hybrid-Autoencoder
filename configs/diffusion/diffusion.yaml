@@ -71,7 +71,6 @@ ddpm_train:
   save_model: True
   ws_test: [1.0, 2.0] # strength of generative guidance
 
-
 context_unet_model:
   in_channels: 1
   n_feat: n_feat
@@ -80,6 +79,12 @@ context_unet_model:
   n_T: n_T
   device: device
   drop_prob: 0.1
+
+diffusion_tester:
+  num_samples: 4
+  w: 0.5
+  quantile: 0.25
+  mode: "best"
 
 
 

@@ -146,9 +146,11 @@ class Tester:
         plt.colorbar()
         plt.title(title)
         if save:
-            img_path = self.path + '/images/'
-            os.makedirs(os.path.dirname(img_path), exist_ok=True)
-            plt.savefig(img_path + 'latent_space_epoch' + str(title) + '.png')
+            images_dir  =  os.path.join(self.path, "images")
+            os.makedirs(images_dir, exist_ok=True)
+            file_name = 'latent_space_epoch' + str(title) + '.png'
+            plt.tight_layout()
+            plt.savefig(os.path.join(images_dir, file_name))
             # Clear the current axes.
             plt.cla() 
             # Clear the current figure.
@@ -219,9 +221,11 @@ class Tester:
             ax[1].set_ylabel("z - dim 2")
 
             if save:
-                img_path = self.path+'/images/'
-                os.makedirs(os.path.dirname(img_path), exist_ok=True)
-                plt.savefig(img_path + str(title) + f"_eng_{engine_id}" + ".png")
+                images_dir  =  os.path.join(self.path, "images")
+                os.makedirs(images_dir, exist_ok=True)
+                file_name = str(title) + f"_eng_{engine_id}" + ".png"
+                plt.tight_layout()
+                plt.savefig(os.path.join(images_dir, file_name))
                 # Clear the current axes.
                 plt.cla() 
                 # Clear the current figure.

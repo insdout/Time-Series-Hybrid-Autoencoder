@@ -300,9 +300,11 @@ class Trainer:
         ax[2][0].set_yscale('log')
         # ax[2][1].set_yscale('log')
         if save:
-            img_path = path + '/images/'
-            os.makedirs(os.path.dirname(img_path), exist_ok=True)
-            plt.savefig(img_path + "Training Curves" + ".png")
+            images_dir  =  os.path.join(path, "images")
+            os.makedirs(images_dir, exist_ok=True)
+            file_name =  "Training Curves.png"
+            plt.tight_layout()
+            plt.savefig(os.path.join(images_dir, file_name))
             # Clear the current axes.
             plt.cla() 
             # Clear the current figure.
@@ -323,13 +325,13 @@ def main(config):
         import random
         import os
 
-        torch.manual_seed(42)
-        torch.cuda.manual_seed_all(42)
+        torch.manual_seed(config.random_seed.seed)
+        torch.cuda.manual_seed_all(config.random_seed.seed)
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
         torch.use_deterministic_algorithms(True) 
-        np.random.seed(42)
-        random.seed(42)
+        np.random.seed(config.random_seed.seed)
+        random.seed(config.random_seed.seedginebra)
         # see https://pytorch.org/docs/stable/generated/torch.nn.LSTM.html#torch.nn.LSTM
         os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":16:8"
 
