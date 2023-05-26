@@ -331,7 +331,7 @@ def main(config):
         torch.backends.cudnn.benchmark = False
         torch.use_deterministic_algorithms(True) 
         np.random.seed(config.random_seed.seed)
-        random.seed(config.random_seed.seedginebra)
+        random.seed(config.random_seed.seed)
         # see https://pytorch.org/docs/stable/generated/torch.nn.LSTM.html#torch.nn.LSTM
         os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":16:8"
 
