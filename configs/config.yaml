@@ -5,7 +5,6 @@ defaults:
   - scheduler: scheduler
   - loss: triplet
   - trainer: base_trainer
-  - finetuner: finetuner
   - random_seed: random_seed
   - diffusion: diffusion
   - knnmetric: knnmetric

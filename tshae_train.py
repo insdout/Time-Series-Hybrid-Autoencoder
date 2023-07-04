@@ -1,5 +1,5 @@
-from metric_dataloader import MetricDataPreprocessor
-from loss import TotalLoss
+from utils.metric_dataloader import MetricDataPreprocessor
+from utils.loss import TotalLoss
 import torch
 from collections import defaultdict
 import json
@@ -318,7 +318,7 @@ class Trainer:
 
 @hydra.main(version_base=None, config_path="./configs", config_name="config.yaml")
 def main(config):
-    from test import Tester
+    from tshae_test import Tester
 
     # fix random seeds:
     if config.random_seed.fix == True:

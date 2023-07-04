@@ -2,8 +2,8 @@ import torch
 import hydra
 from hydra.utils import instantiate
 import numpy as np
-from metric_dataloader import MetricDataPreprocessor
-from test import Tester
+from utils.metric_dataloader import MetricDataPreprocessor
+from tshae_test import Tester
 import pandas as pd
 import os 
 import seaborn as sns

@@ -1,8 +1,8 @@
 import torch
 import numpy  as np
-from plot_utils import plot_engine_run_diff, plot_engine_run_diff_decision_boundary, reconstruct_and_plot
-from cond_diffusion_original import ContextUnet, DDPM
-from metric_dataloader import MetricDataPreprocessor
+from utils.plot_utils import plot_engine_run_diff, plot_engine_run_diff_decision_boundary, reconstruct_and_plot
+from models.ddpm_models import ContextUnet, DDPM
+from utils.metric_dataloader import MetricDataPreprocessor
 import hydra
 import pickle
 

@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 import matplotlib.pyplot as plt
 from collections import defaultdict
-from metric import KNNRULmetric
+from utils.metric import KNNRULmetric
 import json
 import gc
 
@@ -284,7 +284,7 @@ class Tester:
 
 @hydra.main(version_base=None, config_path="./configs", config_name="config.yaml")
 def main(config):
-    from metric_dataloader import MetricDataPreprocessor
+    from utils.metric_dataloader import MetricDataPreprocessor
     path = "/home/mikhail/Thesis/MDS-Thesis-RULPrediction/outputs/2023-04-12/00-37-45/"
     model = torch.load(path+"rve_model.pt")
 
