@@ -14,8 +14,15 @@ defaults:
 hydra:
   sweeper:
     params:
-      data_preprocessor: more_sensors_FD001, more_sensors_FD002, more_sensors_FD003, more_sensors_FD004
-      random_seed.seed: 1, 2, 3, 4, 5, 6, 7, 8, 9, 42
+      random_seed.seed: 1, 5, 10, 15, 20, 25, 30, 42
+      model.encoder.dropout:  0.5
+      model.decoder.dropout_layer: 0.7
+      model.rve.dropout_regressor: 0.8
+      model.rve.regression_dims: 100
+      optimizer.lr: 0.001, 0.002, 0.005
+
+      #loss.TripletLoss.weight: 0, 50, 100, 150
+      #loss.RegLoss.weight: 0, 0.5, 1, 2
       #optimizer.lr: 0.002, 0.003
       #model.encoder.dropout: 0.3, 0.5, 0.7, 0.8
       #model.decoder.dropout_layer: 0.3, 0.5, 0.7, 0.8

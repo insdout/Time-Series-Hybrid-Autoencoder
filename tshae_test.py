@@ -6,6 +6,7 @@ import torch.nn as nn
 import matplotlib.pyplot as plt
 from collections import defaultdict
 from utils.metric import KNNRULmetric
+from omegaconf import DictConfig, OmegaConf
 import json
 import gc
 
@@ -282,21 +283,53 @@ class Tester:
         return open(path, 'w')
 
 
-@hydra.main(version_base=None, config_path="./configs", config_name="config.yaml")
-def main(config):
+def main(path):
     from utils.metric_dataloader import MetricDataPreprocessor
-    path = "/home/mikhail/Thesis/MDS-Thesis-RULPrediction/outputs/2023-04-12/00-37-45/"
-    model = torch.load(path+"rve_model.pt")
+    config_path = path + ".hydra/config.yaml"
+    model_path = path + "tshae_best_model.pt"
+    config = OmegaConf.load(config_path)
+    model = torch.load(model_path)
+    
+    # fix random seeds:
+    if config.random_seed.fix == True:
+        import random
+        import os
+
+        torch.manual_seed(config.random_seed.seed)
+        torch.cuda.manual_seed_all(config.random_seed.seed)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+        torch.use_deterministic_algorithms(True) 
+        np.random.seed(config.random_seed.seed)
+        random.seed(config.random_seed.seed)
+        # see https://pytorch.org/docs/stable/generated/torch.nn.LSTM.html#torch.nn.LSTM
+        os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":16:8"
 
     preproc = MetricDataPreprocessor(**config.data_preprocessor)
     train_loader, test_loader, val_loader = preproc.get_dataloaders()
+    
+    # Running test utils:
+    rul_threshold = config.knnmetric.rul_threshold
+    n_neighbors = config.knnmetric.n_neighbors
+    tester = Tester(
+        **config.trainer.tester, 
+        path=path, 
+        model=model, 
+        val_loader=val_loader, 
+        test_loader=test_loader, 
+        rul_threshold=rul_threshold, 
+        n_neighbors=n_neighbors
+        )
 
-    tester = Tester(path, model, val_loader, test_loader)
     z, t, true_rul = tester.get_z()
-    print(z.shape, true_rul.shape, true_rul.shape, len(val_loader.dataset))
-    print(tester.get_test_score())
     tester.test()
 
 
 if __name__ == "__main__":
-    main()
+    import argparse
+    
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--checkpoint_path", type=str, required=True,
+                        help="Path to the saved TSHAE model.")
+    args = parser.parse_args()
+    main(args.checkpoint_path)
