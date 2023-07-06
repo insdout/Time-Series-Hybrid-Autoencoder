@@ -1,8 +1,9 @@
 # MDS Thesis - Remaining Useful Life Estimation on Sensor Data
 
+<img alt="Python" src="https://img.shields.io/badge/python-%2314354C.svg?style=for-the-badge&logo=python&logoColor=white"/> <img alt="PyTorch" src="https://img.shields.io/badge/PyTorch-%23EE4C2C.svg?style=for-the-badge&logo=PyTorch&logoColor=white" />
+
 This repository contains the code and data for my Master's thesis on Remaining Useful Life (RUL) prediction. The thesis focuses on the application of machine learning and deep learning techniques to predict the remaining useful life of equipment.
 
-<img alt="Python" src="https://img.shields.io/badge/python-%2314354C.svg?style=for-the-badge&logo=python&logoColor=white"/> <img alt="PyTorch" src="https://img.shields.io/badge/PyTorch-%23EE4C2C.svg?style=for-the-badge&logo=PyTorch&logoColor=white" />
 
 ## Table of Contents
 
