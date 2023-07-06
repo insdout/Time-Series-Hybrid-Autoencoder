@@ -393,4 +393,6 @@ def main(config):
 
 
 if __name__ == "__main__":
+    # If running in WSL, run in console first:
+    # export QT_QPA_PLATFORM=offscreen
     main()
