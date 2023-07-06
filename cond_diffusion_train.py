@@ -26,7 +26,6 @@ def train_cmapss(config):
     print(f"train set: {len(train_loader.dataset)} val set: {len(val_loader.dataset)}")
 
     model_tshae = torch.load(config.diffusion.checkpoint_tshae.path)
-    #print(model_tshae)
     
     hydra_cfg = hydra.core.hydra_config.HydraConfig.get()
     output_dir = hydra_cfg['runtime']['output_dir']

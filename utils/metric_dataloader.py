@@ -481,35 +481,3 @@ class MetricDataset(Dataset):
         """
         mask = self.run_id == run_id
         return torch.FloatTensor(self.sequences[mask]), torch.FloatTensor(self.targets[mask])
-
-
-    
-
-@hydra.main(version_base=None, config_path="./configs", config_name="config.yaml")
-def main(config):
-    print()
-    print("==========================")
-    print(OmegaConf.to_yaml(config))
-    print()
-    print(config)
-    print(config.model.input_size)
-    print("keys:", config.keys())
-    print()
-    print("conf:", config.data_preprocessor)
-    print()
-    print("keys.preprocessor", config.data_preprocessor.sensors, type(config.data_preprocessor.sensors),
-          config.data_preprocessor.sensors[0])
-    print()
-    print(type(config.data_preprocessor.sensors) != list)
-    print()
-    print(type([]) == list)
-    print("==========================")
-
-    preproc = MetricDataPreprocessor(**config.data_preprocessor)
-    train_loader, test_loader, val_loader = preproc.get_dataloaders()
-    x, pos_x, neg_x, y, pos_y, neg_y = next(iter(train_loader))
-    print(f"x shape: {x.shape} y shape: {y.shape} {pos_x.shape}{pos_y.shape}{neg_y.shape}{neg_y.shape}")
-
-
-if __name__ == "__main__":
-    main()

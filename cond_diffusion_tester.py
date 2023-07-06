@@ -2,9 +2,11 @@ import torch
 import numpy  as np
 from utils.plot_utils import plot_engine_run_diff, plot_engine_run_diff_decision_boundary, reconstruct_and_plot
 from models.ddpm_models import ContextUnet, DDPM
+from omegaconf import OmegaConf
 from utils.metric_dataloader import MetricDataPreprocessor
 import hydra
 import pickle
+import os
 
 
 def get_engine_runs_diffusion(
@@ -95,27 +97,30 @@ def get_engine_runs_diffusion(
 @hydra.main(version_base=None, config_path="./configs", config_name="config.yaml")
 def test(config):
 
-    preproc = MetricDataPreprocessor(**config.data_preprocessor)
+    tshae_checkpoint_path = config.diffusion.checkpoint_tshae.path
+    print(tshae_checkpoint_path)
+    tshae_config_path = os.path.dirname(tshae_checkpoint_path) + "/.hydra/config.yaml"
+    tshae_config = OmegaConf.load(tshae_config_path)
+    
+    preproc = MetricDataPreprocessor(**tshae_config.data_preprocessor)
     train_loader, test_loader, val_loader = preproc.get_dataloaders()
     print(f"train set: {len(train_loader.dataset)} val set: {len(val_loader.dataset)}")
-    model_rve = torch.load(config.diffusion.checkpoint.path)
+    model_rve = torch.load(tshae_checkpoint_path)
     #print(model_rve)
     
     hydra_cfg = hydra.core.hydra_config.HydraConfig.get()
     output_dir = hydra_cfg['runtime']['output_dir']
     print(f"output dir: {output_dir}")
 
-  
-    n_epoch = config.diffusion.ddpm_train.epochs
-    n_T = config.diffusion.ddpm_train.n_T # 500
-    device = config.diffusion.ddpm_train.device #"cuda:0" or "cpu"#
-    z_dim   = config.diffusion.ddpm_train.z_dim
-    n_feat = config.diffusion.ddpm_train.n_feat # 128 ok, 256 better (but slower)
-    lrate = config.diffusion.ddpm_train.lrate #1e-4
-    save_model = config.diffusion.ddpm_train.save_model
-    save_dir = output_dir #'./outputs/diffusion_outputs/'
-    ws_test = config.diffusion.ddpm_train.ws_test #[0.0, 0.5, 2.0]  strength of generative guidance
-    drop_prob = config.diffusion.ddpm_model.drop_prob
+    ddpm_checkpoint_path = config.diffusion.checkpoint_ddpm.path
+    ddpm_config_path = os.path.dirname(ddpm_checkpoint_path) + "/.hydra/config.yaml"
+    ddpm_checkpoint_config = OmegaConf.load(ddpm_config_path)
+ 
+    n_T = ddpm_checkpoint_config.diffusion.ddpm_train.n_T # 500
+    device = ddpm_checkpoint_config.diffusion.ddpm_train.device #"cuda:0" or "cpu"#
+    z_dim   = ddpm_checkpoint_config.diffusion.ddpm_train.z_dim
+    n_feat = ddpm_checkpoint_config.diffusion.ddpm_train.n_feat # 128 ok, 256 better (but slower)
+    drop_prob = ddpm_checkpoint_config.diffusion.ddpm_model.drop_prob
     
     ddpm = DDPM(
         nn_model=ContextUnet(
@@ -142,7 +147,7 @@ def test(config):
         mode=config.diffusion.diffusion_tester.mode
         )
     
-    with open("engine_runs_diff.pickle", 'wb') as handle:
+    with open(output_dir + "engine_runs_diff.pickle", 'wb') as handle:
         pickle.dump(engine_runs, handle)
     for engine in engine_runs.keys():
         plot_engine_run_diff(engine_runs,engine_id=engine, img_path=output_dir, save=True)

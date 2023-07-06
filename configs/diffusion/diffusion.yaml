@@ -52,7 +52,7 @@ checkpoint_tshae:
   path: "./best_models/FD003/tshae/tshae_best_model.pt"
 
 checkpoint_ddpm:
-  path: "./outputs/2023-05-13/02-05-52/model_99.pth"
+  path: "./best_models/FD003/ddpm/ddpm_best_model.pt"
 
 ddpm_model:
   drop_prob: 0.1

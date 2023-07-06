@@ -128,18 +128,3 @@ class FineTuneTotalLoss:
             else:
                 raise Exception(f"No such loss: {name}")
         return losses_dict
-
-
-@hydra.main(version_base=None, config_path="./configs", config_name="config.yaml")
-def main(config):
-    print(config.loss.TripletLoss.z_dims == [0, 1])
-    print()
-    tl = TotalLoss(config)
-    print(tl.losses)
-    print(tl.weights)
-    print()
-    print(tl.losses[-2], tl.losses[-2].z_dims)
-    
-   
-if __name__ == "__main__":
-    main()
