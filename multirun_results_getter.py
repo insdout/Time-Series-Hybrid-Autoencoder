@@ -6,6 +6,7 @@ import json
 import pandas as pd 
 from hydra import initialize, compose
 from omegaconf import OmegaConf
+import argparse
 import seaborn as sns
 import matplotlib.pyplot as plt
 
@@ -105,5 +106,9 @@ def main(multirun_path):
     print(df.head())
 
 if __name__ == "__main__":
-    multirun_path = "./multirun/2023-05-23/19-41-35/"
-    main(multirun_path)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--multirun_path", type=str, required=True,
+                        help="Path to the multirun directory")
+    args = parser.parse_args()
+
+    main(args.multirun_path)
