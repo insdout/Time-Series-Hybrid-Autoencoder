@@ -103,6 +103,12 @@ To use this code, follow these steps:
 
 Please refer to the specific scripts or notebooks for detailed instructions and usage examples.
 
+```bash
+ python tshae_test.py --checkpoint_path ./best_models/FD003/tshae/
+```
+
+
+
 ## References
 
 If you use this code or find it helpful, please consider citing the following references:
