@@ -103,8 +103,8 @@ To use this code, follow these steps:
 
 Please refer to the specific scripts or notebooks for detailed instructions and usage examples.
 
-```bash
- python tshae_test.py --checkpoint_path ./best_models/FD003/tshae/
+```console
+foo@bar:~/MDS-Thesis-RULPrediction$ python tshae_test.py --checkpoint_path ./best_models/FD003/tshae/
 ```
 
 
