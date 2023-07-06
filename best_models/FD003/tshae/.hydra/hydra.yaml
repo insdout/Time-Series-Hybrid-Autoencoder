@@ -1,0 +1,176 @@
+hydra:
+  run:
+    dir: outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}
+  sweep:
+    dir: multirun/${now:%Y-%m-%d}/${now:%H-%M-%S}
+    subdir: ${hydra.job.num}
+  launcher:
+    _target_: hydra._internal.core_plugins.basic_launcher.BasicLauncher
+  sweeper:
+    _target_: hydra._internal.core_plugins.basic_sweeper.BasicSweeper
+    max_batch_size: 10
+    params:
+      random_seed.seed: 1, 2, 42
+      model.encoder.dropout: 0.3, 0.5, 0.7, 0.8
+      model.decoder.dropout_layer: 0.3, 0.5, 0.7, 0.8
+      model.rve.dropout_regressor: 0.5, 0.7, 0.8
+      model.rve.regression_dims: 50, 100, 150
+  help:
+    app_name: ${hydra.job.name}
+    header: '${hydra.help.app_name} is powered by Hydra.
+
+      '
+    footer: 'Powered by Hydra (https://hydra.cc)
+
+      Use --hydra-help to view Hydra specific help
+
+      '
+    template: '${hydra.help.header}
+
+      == Configuration groups ==
+
+      Compose your configuration from those groups (group=option)
+
+
+      $APP_CONFIG_GROUPS
+
+
+      == Config ==
+
+      Override anything in the config (foo.bar=value)
+
+
+      $CONFIG
+
+
+      ${hydra.help.footer}
+
+      '
+  hydra_help:
+    template: 'Hydra (${hydra.runtime.version})
+
+      See https://hydra.cc for more info.
+
+
+      == Flags ==
+
+      $FLAGS_HELP
+
+
+      == Configuration groups ==
+
+      Compose your configuration from those groups (For example, append hydra/job_logging=disabled
+      to command line)
+
+
+      $HYDRA_CONFIG_GROUPS
+
+
+      Use ''--cfg hydra'' to Show the Hydra config.
+
+      '
+    hydra_help: ???
+  hydra_logging:
+    version: 1
+    formatters:
+      simple:
+        format: '[%(asctime)s][HYDRA] %(message)s'
+    handlers:
+      console:
+        class: logging.StreamHandler
+        formatter: simple
+        stream: ext://sys.stdout
+    root:
+      level: INFO
+      handlers:
+      - console
+    loggers:
+      logging_example:
+        level: DEBUG
+    disable_existing_loggers: false
+  job_logging:
+    version: 1
+    formatters:
+      simple:
+        format: '[%(asctime)s][%(name)s][%(levelname)s] - %(message)s'
+    handlers:
+      console:
+        class: logging.StreamHandler
+        formatter: simple
+        stream: ext://sys.stdout
+      file:
+        class: logging.FileHandler
+        formatter: simple
+        filename: ${hydra.runtime.output_dir}/${hydra.job.name}.log
+    root:
+      level: INFO
+      handlers:
+      - console
+      - file
+    disable_existing_loggers: false
+  env: {}
+  mode: MULTIRUN
+  searchpath: []
+  callbacks: {}
+  output_subdir: .hydra
+  overrides:
+    hydra:
+    - hydra.verbose=true
+    - hydra.sweeper.max_batch_size=10
+    - hydra.mode=MULTIRUN
+    task:
+    - random_seed.seed=42
+    - model.encoder.dropout=0.3
+    - model.decoder.dropout_layer=0.8
+    - model.rve.dropout_regressor=0.5
+    - model.rve.regression_dims=150
+  job:
+    name: tshae_train
+    chdir: null
+    override_dirname: model.decoder.dropout_layer=0.8,model.encoder.dropout=0.3,model.rve.dropout_regressor=0.5,model.rve.regression_dims=150,random_seed.seed=42
+    id: '317'
+    num: 317
+    config_name: config.yaml
+    env_set: {}
+    env_copy: []
+    config:
+      override_dirname:
+        kv_sep: '='
+        item_sep: ','
+        exclude_keys: []
+  runtime:
+    version: 1.3.2
+    version_base: '1.3'
+    cwd: /home/misha/repos/MDS-Thesis-RULPrediction
+    config_sources:
+    - path: hydra.conf
+      schema: pkg
+      provider: hydra
+    - path: /home/misha/repos/MDS-Thesis-RULPrediction/configs
+      schema: file
+      provider: main
+    - path: ''
+      schema: structured
+      provider: schema
+    output_dir: /home/misha/repos/MDS-Thesis-RULPrediction/multirun/2023-07-05/10-08-11/317
+    choices:
+      noise_tester: noise_tester
+      knnmetric: knnmetric
+      diffusion: diffusion
+      random_seed: random_seed
+      trainer: base_trainer
+      loss: triplet
+      scheduler: scheduler
+      optimizer: adam
+      model: base_rve
+      data_preprocessor: more_sensors_FD003
+      hydra/env: default
+      hydra/callbacks: null
+      hydra/job_logging: default
+      hydra/hydra_logging: default
+      hydra/hydra_help: default
+      hydra/help: default
+      hydra/sweeper: basic
+      hydra/launcher: basic
+      hydra/output: default
+  verbose: true
