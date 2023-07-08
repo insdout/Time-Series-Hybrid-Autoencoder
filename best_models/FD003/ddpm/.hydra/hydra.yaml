@@ -119,7 +119,7 @@ hydra:
     - hydra.mode=RUN
     task: []
   job:
-    name: cond_diffusion_train
+    name: ddpm_train
     chdir: null
     override_dirname: ''
     id: ???
@@ -146,7 +146,7 @@ hydra:
     - path: ''
       schema: structured
       provider: schema
-    output_dir: /home/misha/repos/MDS-Thesis-RULPrediction/outputs/2023-07-06/17-32-23
+    output_dir: /home/misha/repos/MDS-Thesis-RULPrediction/outputs/2023-07-08/15-10-41
     choices:
       noise_tester: noise_tester
       knnmetric: knnmetric

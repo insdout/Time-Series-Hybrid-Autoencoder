@@ -11,7 +11,6 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 
 
-
 def getFromDict(dataDict, mapList):
     return reduce(operator.getitem, mapList, dataDict)
 

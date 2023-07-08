@@ -60,7 +60,7 @@ data_preprocessor:
   val_dl_num_workers: 8
 model:
   encoder:
-    _target_: models.ae_models.Encoder
+    _target_: models.tshae_models.Encoder
     input_size: 21
     hidden_size: 300
     latent_dim: 2
@@ -69,7 +69,7 @@ model:
     dropout: 0.2
     bidirectional: false
   decoder:
-    _target_: models.ae_models.Decoder
+    _target_: models.tshae_models.Decoder
     input_size: ${model.encoder.input_size}
     hidden_size: ${model.encoder.hidden_size}
     latent_dim: ${model.encoder.latent_dim}
@@ -79,7 +79,7 @@ model:
     dropout_lstm: 0
     dropout_layer: 0.8
   rve:
-    _target_: models.ae_models.RVE
+    _target_: models.tshae_models.TSHAE
     reconstruct: true
     dropout_regressor: 0.5
     regression_dims: 100
@@ -203,7 +203,9 @@ diffusion:
   checkpoint_tshae:
     path: ./best_models/FD003/tshae/tshae_best_model.pt
   checkpoint_ddpm:
-    path: ./outputs/2023-05-13/02-05-52/model_99.pth
+    path: ./best_models/FD003/ddpm/ddpm_best_model.pt
+  extrapolated_latent:
+    path: ./assets/extrapolated_latent.json
   ddpm_model:
     drop_prob: 0.1
   optimizer:
@@ -237,8 +239,8 @@ knnmetric:
   rul_threshold: 120
   n_neighbors: 3
 noise_tester:
-  rve_checkpoint:
-    path: ./outputs/08-33-13_rve_checkpoint_2/rve_model.pt
+  checkpoint_tshae:
+    path: ./best_models/FD003/tshae/tshae_best_model.pt
   means:
   - 0
   stds:

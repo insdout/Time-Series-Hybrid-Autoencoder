@@ -288,14 +288,14 @@ def get_test_score(model, data_loader):
     return score, rmse
 
 
-def get_engine_runs_diffusion(dataloader, rve_model, diffusion_model, device='cpu'):
+def get_engine_runs_diffusion(dataloader, tshae_model, diffusion_model, device='cpu'):
     """
     Performs inference for each engine_id (unit number) run from validation dataset
     :return: dictionary with true RUL, predicted RUL and latent spase vector z for each engine_id, dict
     """
     engine_ids = dataloader.dataset.ids
     history = defaultdict(dict)
-    rve_model.eval().to(device)
+    tshae_model.eval().to(device)
     diffusion_model.eval().to(device)
 
     for engine_id in engine_ids[:0]:
@@ -304,7 +304,7 @@ def get_engine_runs_diffusion(dataloader, rve_model, diffusion_model, device='cp
             x, y = dataloader.dataset.get_run(engine_id)
             x = x.to(device)
             y = y.to(device)
-            y_hat, z, *_ = rve_model(x)
+            y_hat, z, *_ = tshae_model(x)
             print("z shape:", z.shape, "x size:", x.shape)
             x_hat, _ = diffusion_model.sample_cmapss(n_sample=10, size=(1,32,32), device=x.device, z_space_contexts=z, guide_w = 0.0)
             
@@ -312,7 +312,7 @@ def get_engine_runs_diffusion(dataloader, rve_model, diffusion_model, device='cp
             #================================================
             
             print("shape x_hat", x_hat.shape)
-            rul_hat_diff, z_diff, *_ = rve_model(x_hat[:,:,:,:21].squeeze(1))
+            rul_hat_diff, z_diff, *_ = tshae_model(x_hat[:,:,:,:21].squeeze(1))
 
             history[engine_id]['rul'] = y.detach().cpu().numpy()
             history[engine_id]['rul_hat'] = y_hat.detach().cpu().numpy()
@@ -390,7 +390,7 @@ def plot_engine_run_diff(
     
     if save:
         #img_path ="./outputs/diffusion_outputs/images/"
-        images_dir  =  os.path.join(img_path, "images")
+        images_dir  =  os.path.join(img_path, "images/engine_run")
         os.makedirs(images_dir, exist_ok=True)
         file_name =  str(title) + f"_eng_{engine_id}" + ".png"
         plt.tight_layout()
@@ -405,7 +405,7 @@ def plot_engine_run_diff(
 
 
 def plot_engine_run_diff_decision_boundary(
-    rve_model, history, 
+    tshae_model, history, 
     img_path="./outputs/diffusion_outputs/images_decision/", 
     engine_id=None, title="engine_run_boundary", 
     save=True,
@@ -414,7 +414,7 @@ def plot_engine_run_diff_decision_boundary(
     """_summary_
 
     Args:
-        rve_model (_type_): _description_
+        tshae_model (_type_): _description_
         history (_type_): _description_
         img_path (str, optional): _description_. Defaults to "./outputs/diffusion_outputs/images_decision/".
         engine_id (_type_, optional): _description_. Defaults to None.
@@ -445,14 +445,14 @@ def plot_engine_run_diff_decision_boundary(
         z2_lim = [-2.5, 6]
 
         h = 0.01
-        rve_model.eval()
-        rve_model.cpu()
+        tshae_model.eval()
+        tshae_model.cpu()
         # Generate a grid of points with distance h between them
         xx, yy = np.meshgrid(np.arange(z1_lim[0], z1_lim[1], h), np.arange(z2_lim[0], z2_lim[1], h))
       
         # Predict the function value for the whole gid
         z_mesh = torch.FloatTensor(np.c_[xx.ravel(), yy.ravel()]).unsqueeze(0)
-        rul_hat = rve_model.regressor(z_mesh)
+        rul_hat = tshae_model.regressor(z_mesh)
         rul_hat = rul_hat.reshape(xx.shape)
         # Plot the contour and training examples
         levels = list(range(125))
@@ -478,7 +478,7 @@ def plot_engine_run_diff_decision_boundary(
         
     if save:
         #img_path ="./outputs/diffusion_outputs/images_decision/" 
-        images_dir  =  os.path.join(img_path, "images")
+        images_dir  =  os.path.join(img_path, "images/decision_boundary")
         os.makedirs(images_dir, exist_ok=True)
         file_name =  str(title) + f"_eng_{engine_id}" + ".png"
         plt.tight_layout()
@@ -492,7 +492,7 @@ def plot_engine_run_diff_decision_boundary(
         plt.show()
     
     
-def reconstruct_timeseries(history, engine_id, path_with_big_delta_rul=False, rul_delta_threshold=60):
+def reconstruct_timeseries(history, engine_id, patch_with_big_delta_rul=False, rul_delta_threshold=60):
     """
     Reconstructs Time-Series from array of data slices (window_size, n_sensors) by appending last row of each consequent window,
     to thw first one. Data slices with RUL delta above RUL delta threshold are taken as a whole, overwriting the constructed Time-Series,
@@ -539,7 +539,7 @@ def reconstruct_timeseries(history, engine_id, path_with_big_delta_rul=False, ru
     x_diff_reconstructed = np.concatenate(x_diff_reconstructed, axis=0)
     x_reconstructed = np.concatenate(x_reconstructed, axis=0)
     
-    if path_with_big_delta_rul:
+    if patch_with_big_delta_rul:
         for delta_indx in rul_delta_mask_indexes:
             #print(delta_indx, type(delta_indx))
             x_diff_reconstructed[0 + delta_indx: 32 + delta_indx] = x_diff[delta_indx]
@@ -567,7 +567,7 @@ def plot_sensors(df_true, df_diff,  rul_true, rul_hat_diff, rul_predicted, engin
 
     ax[0].plot(rul_true, color="green", label="true RUL")
     ax[0].plot(rul_hat_diff, color="red", label="diffusion RUL")
-    ax[0].plot(rul_predicted, color="orange", label="RVE RUL")
+    ax[0].plot(rul_predicted, color="orange", label="TSHAE RUL")
     ax[0].set_title("RUL vs Time")
     ax[0].legend(loc = "upper right")
     
@@ -608,3 +608,4 @@ def reconstruct_and_plot(history, engine_id, img_path, save=True, show=True):
     df_diff = pd.DataFrame(x_diff, columns=columns)
     
     plot_sensors(df_true, df_diff,  rul_true, rul_hat_diff, rul_predicted, engine_id=engine_id, img_path=img_path, save=save, show=show)
+

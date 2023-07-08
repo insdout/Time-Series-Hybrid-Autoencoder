@@ -6,14 +6,17 @@ import torch.nn as nn
 import matplotlib.pyplot as plt
 from collections import defaultdict
 from utils.metric import KNNRULmetric
-from omegaconf import DictConfig, OmegaConf
+from omegaconf import OmegaConf
+from utils.metric_dataloader import MetricDataPreprocessor
 import json
 import gc
-
-import hydra
+from utils.tshae_utils import load_tshae_model
 
 
 class Tester:
+    """
+    Class for testing the TSHAE model and evaluating its performance.
+    """
 
     @staticmethod
     def score(true_rul, rul_hat):
@@ -47,6 +50,24 @@ class Tester:
                  save=True, 
                  show=False
                  ):
+        
+        """
+        Initializes the Tester class.
+
+        :param path: Path to the directory where the results will be saved
+        :param model: The trained TSHAE model
+        :param val_loader: Validation data loader
+        :param test_loader: Test data loader
+        :param rul_threshold: Threshold value for RUL classification
+        :param n_neighbors: Number of neighbors for KNN-based RUL metric
+        :param add_noise_val: Flag indicating whether to add noise to validation data
+        :param add_noise_test: Flag indicating whether to add noise to test data
+        :param noise_mean: Mean of the Gaussian noise
+        :param noise_std: Standard deviation of the Gaussian noise
+        :param save: Flag indicating whether to save the results
+        :param show: Flag indicating whether to show the plots
+        """
+        
         self.model = model
         self.metric = KNNRULmetric(rul_threshold=rul_threshold, n_neighbors=n_neighbors)
         self.test_loader = test_loader
@@ -89,7 +110,6 @@ class Tester:
                 score += Tester.score(true_rul, rul_hat).item()
 
         rmse = (rmse / len(self.test_loader.dataset)) ** 0.5
-        #print(f"RMSE: {rmse :6.3f} Score: {score :6.3f}")
         return score, rmse
 
     def get_z(self):
@@ -274,21 +294,26 @@ class Tester:
             json.dump(results, f)
 
     def safe_open_w(self, path):
-        ''' 
+        """ 
         Open "path" for writing, creating any parent directories as needed.
         :param path:
         :return: object
-        '''
+        """
         os.makedirs(os.path.dirname(path), exist_ok=True)
         return open(path, 'w')
 
 
 def main(path):
-    from utils.metric_dataloader import MetricDataPreprocessor
+    """
+    Main function for testing the TSHAE model and evaluating its performance.
+
+    :param path: Path to the saved TSHAE model.
+    """
+    
     config_path = path + ".hydra/config.yaml"
     model_path = path + "tshae_best_model.pt"
     config = OmegaConf.load(config_path)
-    model = torch.load(model_path)
+    model = load_tshae_model(model_path)
     
     # fix random seeds:
     if config.random_seed.fix == True:

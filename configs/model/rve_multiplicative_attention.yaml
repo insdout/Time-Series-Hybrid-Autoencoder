@@ -1,5 +1,5 @@
 encoder:
-  _target_: models.Encoder
+  _target_: models.tshae_models.Encoder
   input_size: 21 
   hidden_size: 256
   latent_dim: 2 
@@ -8,7 +8,7 @@ encoder:
   dropout: 0.5
   bidirectional: False
 decoder:
-  _target_: models.Decoder
+  _target_: models.tshae_models.Decoder
   input_size: ${model.encoder.input_size}
   hidden_size: ${model.encoder.hidden_size}
   latent_dim: ${model.encoder.latent_dim}
@@ -18,7 +18,7 @@ decoder:
   dropout_lstm: 0
   dropout_layer: 0.5
 rve:
-  _target_: models.RVEAttention_MP
+  _target_: models.tshae_models.RVEAttention_MP
   attention_values_embedding: ${data_preprocessor.window_size}
   attention_queries_embedding: ${data_preprocessor.window_size}
   batchnorm_dim: ${model.encoder.input_size}

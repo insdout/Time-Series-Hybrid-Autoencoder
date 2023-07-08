@@ -1,5 +1,5 @@
-- random_seed.seed=42
-- model.encoder.dropout=0.3
+- optimizer.lr=0.002
+- model.encoder.dropout=0.2
 - model.decoder.dropout_layer=0.8
 - model.rve.dropout_regressor=0.5
-- model.rve.regression_dims=150
+- model.rve.regression_dims=100

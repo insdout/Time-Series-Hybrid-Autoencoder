@@ -8,11 +8,11 @@ hydra:
     _target_: hydra._internal.core_plugins.basic_launcher.BasicLauncher
   sweeper:
     _target_: hydra._internal.core_plugins.basic_sweeper.BasicSweeper
-    max_batch_size: 10
+    max_batch_size: null
     params:
-      random_seed.seed: 1, 2, 42
-      model.encoder.dropout: 0.3, 0.5, 0.7, 0.8
-      model.decoder.dropout_layer: 0.3, 0.5, 0.7, 0.8
+      optimizer.lr: 0.002, 0.003
+      model.encoder.dropout: 0.2, 0.5, 0.7
+      model.decoder.dropout_layer: 0.5, 0.7, 0.8
       model.rve.dropout_regressor: 0.5, 0.7, 0.8
       model.rve.regression_dims: 50, 100, 150
   help:
@@ -115,21 +115,19 @@ hydra:
   output_subdir: .hydra
   overrides:
     hydra:
-    - hydra.verbose=true
-    - hydra.sweeper.max_batch_size=10
     - hydra.mode=MULTIRUN
     task:
-    - random_seed.seed=42
-    - model.encoder.dropout=0.3
+    - optimizer.lr=0.002
+    - model.encoder.dropout=0.2
     - model.decoder.dropout_layer=0.8
     - model.rve.dropout_regressor=0.5
-    - model.rve.regression_dims=150
+    - model.rve.regression_dims=100
   job:
-    name: tshae_train
+    name: train
     chdir: null
-    override_dirname: model.decoder.dropout_layer=0.8,model.encoder.dropout=0.3,model.rve.dropout_regressor=0.5,model.rve.regression_dims=150,random_seed.seed=42
-    id: '317'
-    num: 317
+    override_dirname: model.decoder.dropout_layer=0.8,model.encoder.dropout=0.2,model.rve.dropout_regressor=0.5,model.rve.regression_dims=100,optimizer.lr=0.002
+    id: '19'
+    num: 19
     config_name: config.yaml
     env_set: {}
     env_copy: []
@@ -141,23 +139,24 @@ hydra:
   runtime:
     version: 1.3.2
     version_base: '1.3'
-    cwd: /home/misha/repos/MDS-Thesis-RULPrediction
+    cwd: /home/mikhail/Thesis/MDS-Thesis-RULPrediction
     config_sources:
     - path: hydra.conf
       schema: pkg
       provider: hydra
-    - path: /home/misha/repos/MDS-Thesis-RULPrediction/configs
+    - path: /home/mikhail/Thesis/MDS-Thesis-RULPrediction/configs
       schema: file
       provider: main
     - path: ''
       schema: structured
       provider: schema
-    output_dir: /home/misha/repos/MDS-Thesis-RULPrediction/multirun/2023-07-05/10-08-11/317
+    output_dir: /home/mikhail/Thesis/MDS-Thesis-RULPrediction/multirun/2023-05-11/23-34-44/19
     choices:
       noise_tester: noise_tester
       knnmetric: knnmetric
       diffusion: diffusion
       random_seed: random_seed
+      finetuner: finetuner
       trainer: base_trainer
       loss: triplet
       scheduler: scheduler
@@ -173,4 +172,4 @@ hydra:
       hydra/sweeper: basic
       hydra/launcher: basic
       hydra/output: default
-  verbose: true
+  verbose: false

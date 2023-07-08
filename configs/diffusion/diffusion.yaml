@@ -54,6 +54,9 @@ checkpoint_tshae:
 checkpoint_ddpm:
   path: "./best_models/FD003/ddpm/ddpm_best_model.pt"
 
+extrapolated_latent:
+  path: "./assets/extrapolated_latent.json"
+
 ddpm_model:
   drop_prob: 0.1
 

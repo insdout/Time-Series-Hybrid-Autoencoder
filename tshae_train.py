@@ -9,9 +9,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch.nn as nn
 import gc
+from tshae_test import Tester
 
 import hydra
-from omegaconf import DictConfig, OmegaConf
 from hydra.utils import instantiate
 
 from torch.utils.tensorboard import SummaryWriter
@@ -41,6 +41,29 @@ class Trainer:
 
     def __init__(self, model, optimizer, train_loader, val_loader, test_loader, n_epochs, total_loss, validate,
                  save_model, save_history, add_noise_train=False, add_noise_val=False, noise_mean=0, noise_std=1, scheduler=None, verbose=True, device=None):
+        
+        """
+        Initializes the Trainer object.
+        
+        :param model: the model to be trained
+        :param optimizer: the optimizer used for training
+        :param train_loader: the training data loader
+        :param val_loader: the validation data loader
+        :param test_loader: the test data loader
+        :param n_epochs: the number of training epochs
+        :param total_loss: the total loss function
+        :param validate: whether to perform validation during training
+        :param save_model: whether to save the model at the end of training
+        :param save_history: whether to save the training history
+        :param add_noise_train: whether to add noise to the training data
+        :param add_noise_val: whether to add noise to the validation data
+        :param noise_mean: the mean of the noise
+        :param noise_std: the standard deviation of the noise
+        :param scheduler: the learning rate scheduler
+        :param verbose: whether to print training progress
+        :param device: the device to be used for training (default: "cuda:0" if available, else "cpu")
+        """
+        
         self.optimizer = optimizer
         self.scheduler = scheduler
         self.train_loader = train_loader
@@ -140,7 +163,8 @@ class Trainer:
 
     def valid_epoch(self):
         """
-        Validation loop. Performs iteration over dataset, computing loss functions and updating the history dictionary.
+        Validation loop. Performs iteration over dataset, 
+        computing loss functions and updating the history dictionary.
         """
         epoch_loss = defaultdict(list)
         self.model.train()
@@ -183,6 +207,7 @@ class Trainer:
         """
         Calls train and validate epochs functions, calculates the RMSE and score values,
         optionally saves the model on the last epoch
+        
         :param n_epochs: number of training epochs
         """
         hydra_cfg = hydra.core.hydra_config.HydraConfig.get()
@@ -221,8 +246,10 @@ class Trainer:
 
     def get_dataset_score(self, datasetloader):
         """
-        Calculates score and RMSE on test dataset
-        :return: score and RMSE, int
+        Calculates score and RMSE on the test dataset.
+        
+        :param datasetloader: the data loader for the test dataset
+        :return: score and RMSE as integers
         """
         rmse = 0
         score = 0
@@ -318,7 +345,11 @@ class Trainer:
 
 @hydra.main(version_base=None, config_path="./configs", config_name="config.yaml")
 def main(config):
-    from tshae_test import Tester
+    """
+    Main function for training and testing the TSHAE model.
+
+    :param config: the configuration object parsed by Hydra
+    """
 
     # fix random seeds:
     if config.random_seed.fix == True:
