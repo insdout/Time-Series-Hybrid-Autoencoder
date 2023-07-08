@@ -1,0 +1,251 @@
+data_preprocessor:
+  dataset_name: FD003
+  max_rul: 125
+  window_size: 32
+  sensors:
+  - s_1
+  - s_2
+  - s_3
+  - s_4
+  - s_5
+  - s_6
+  - s_7
+  - s_8
+  - s_9
+  - s_10
+  - s_11
+  - s_12
+  - s_13
+  - s_14
+  - s_15
+  - s_16
+  - s_17
+  - s_18
+  - s_19
+  - s_20
+  - s_21
+  train_size: 0.8
+  alpha: 1
+  dir_path: ./CMAPSSData/
+  fix_seed: ${random_seed.fix}
+  downsample_healthy_train: false
+  downsample_healthy_validation: true
+  downsample_healthy_test: false
+  downsample_healthy_train_p: 0
+  downsample_healthy_validation_p: 0.8
+  downsample_healthy_test_p: 0
+  train_ds_mode: train
+  train_ds_return_pairs: true
+  train_ds_eps: 2
+  train_ds_max_eps: 10
+  train_ds_triplet_healthy_rul: 125
+  test_ds_mode: test
+  test_ds_return_pairs: false
+  test_ds_eps: 2
+  test_ds_max_eps: 10
+  test_ds_triplet_healthy_rul: 125
+  val_ds_mode: train
+  val_ds_return_pairs: true
+  val_ds_eps: 2
+  val_ds_max_eps: 10
+  val_ds_triplet_healthy_rul: 125
+  train_dl_batch_size: 256
+  train_dl_shuffle: true
+  train_dl_num_workers: 8
+  test_dl_batch_size: 256
+  test_dl_shuffle: false
+  test_dl_num_workers: 8
+  val_dl_batch_size: 256
+  val_dl_shuffle: true
+  val_dl_num_workers: 8
+model:
+  encoder:
+    _target_: models.tshae_models.Encoder
+    input_size: 21
+    hidden_size: 300
+    latent_dim: 2
+    num_layers: 1
+    dropout_lstm: 0
+    dropout: 0.2
+    bidirectional: false
+  decoder:
+    _target_: models.tshae_models.Decoder
+    input_size: ${model.encoder.input_size}
+    hidden_size: ${model.encoder.hidden_size}
+    latent_dim: ${model.encoder.latent_dim}
+    window_size: ${data_preprocessor.window_size}
+    num_layers: ${model.encoder.num_layers}
+    bidirectional: ${model.encoder.bidirectional}
+    dropout_lstm: 0
+    dropout_layer: 0.8
+  rve:
+    _target_: models.tshae_models.TSHAE
+    reconstruct: true
+    dropout_regressor: 0.5
+    regression_dims: 100
+optimizer:
+  _target_: torch.optim.adam.Adam
+  lr: 0.002
+  weight_decay: 0
+scheduler:
+  mode:
+    enable: false
+  self:
+    _target_: torch.optim.lr_scheduler.LinearLR
+    start_factor: 0.5
+    total_iters: 10
+loss:
+  total_loss:
+  - ReconLoss
+  - RegLoss
+  - TripletLoss
+  - KLLoss
+  ReconLoss:
+    _target_: utils.loss.ReconLoss
+    weight: 1
+    z_dims: false
+  RegLoss:
+    _target_: utils.loss.RegLoss
+    weight: 1
+    z_dims: false
+  TripletLoss:
+    _target_: utils.loss.TripletLoss
+    weight: 150
+    z_dims: false
+    margin: 0.4
+    p: 2
+  KLLoss:
+    _target_: utils.loss.KLLoss
+    weight: 1
+    z_dims: false
+trainer:
+  trainer:
+    validate: true
+    save_model: true
+    save_history: true
+    n_epochs: 30
+    verbose: true
+    add_noise_train: false
+    add_noise_val: false
+    noise_mean: 0
+    noise_std: 1
+    device: cuda
+  tester:
+    save: true
+    show: false
+random_seed:
+  fix: true
+  seed: 42
+diffusion:
+  data_preprocessor:
+    dataset_name: FD003
+    max_rul: 125
+    window_size: 32
+    sensors:
+    - s_1
+    - s_2
+    - s_3
+    - s_4
+    - s_5
+    - s_6
+    - s_7
+    - s_8
+    - s_9
+    - s_10
+    - s_11
+    - s_12
+    - s_13
+    - s_14
+    - s_15
+    - s_16
+    - s_17
+    - s_18
+    - s_19
+    - s_20
+    - s_21
+    train_size: 0.99
+    alpha: 1
+    dir_path: ./CMAPSSData/
+    fix_seed: ${random_seed.fix}
+    downsample_healthy_train: true
+    downsample_healthy_validation: false
+    downsample_healthy_test: false
+    downsample_healthy_train_p: 0.9
+    downsample_healthy_validation_p: 0.8
+    downsample_healthy_test_p: 0
+    downsample_rul_threshold_train: 40
+    downsample_rul_threshold_validation: false
+    downsample_rul_threshold_test: false
+    train_ds_mode: train
+    train_ds_return_pairs: false
+    train_ds_eps: 2
+    train_ds_max_eps: 10
+    train_ds_triplet_healthy_rul: 120
+    test_ds_mode: test
+    test_ds_return_pairs: false
+    test_ds_eps: 2
+    test_ds_max_eps: 10
+    test_ds_triplet_healthy_rul: 120
+    val_ds_mode: train
+    val_ds_return_pairs: false
+    val_ds_eps: 2
+    val_ds_max_eps: 10
+    val_ds_triplet_healthy_rul: 120
+    train_dl_batch_size: 64
+    train_dl_shuffle: true
+    train_dl_num_workers: 4
+    test_dl_batch_size: 256
+    test_dl_shuffle: false
+    test_dl_num_workers: 4
+    val_dl_batch_size: 256
+    val_dl_shuffle: true
+    val_dl_num_workers: 4
+  checkpoint_tshae:
+    path: ./best_models/FD003/tshae/tshae_best_model.pt
+  checkpoint_ddpm:
+    path: ./best_models/FD003/ddpm/ddpm_best_model.pt
+  extrapolated_latent:
+    path: ./assets/extrapolated_latent.json
+  ddpm_model:
+    drop_prob: 0.1
+  optimizer:
+    _target_: torch.optim.Adam
+    lr: 0.003
+  ddpm_train:
+    epochs: 100
+    n_T: 500
+    device: cuda:0
+    z_dim: 2
+    n_feat: 64
+    lrate: ${diffusion.optimizer.lr}
+    save_model: true
+    ws_test:
+    - 1.0
+    - 2.0
+  context_unet_model:
+    in_channels: 1
+    n_feat: n_feat
+    z_dim: z_dim
+    betas: (1e-4, 0.02)
+    n_T: n_T
+    device: device
+    drop_prob: 0.1
+  diffusion_tester:
+    num_samples: 4
+    w: 0.5
+    quantile: 0.25
+    mode: best
+knnmetric:
+  rul_threshold: 120
+  n_neighbors: 3
+noise_tester:
+  checkpoint_tshae:
+    path: ./best_models/FD003/tshae/tshae_best_model.pt
+  means:
+  - 0
+  stds:
+  - 0
+  - 0.1
+  - 0.25
+  - 0.5
+  n_runs: 10
