@@ -9,11 +9,17 @@ import json
 import numpy as np
 
 
-
-
-
 def load_latent_trajectory(trajectory_file_path):
- 
+    """
+    Load the latent trajectory from a JSON file.
+    
+    Args:
+        trajectory_file_path (str): Path to the JSON file containing the latent trajectory.
+    
+    Returns:
+        dict: Dictionary containing the loaded latent trajectory, where each key corresponds to an engine ID
+            and the value is a NumPy array of shape (n_samples, 2) representing the latent coordinates.
+    """ 
     with open(trajectory_file_path) as fp:
         val_latent = json.load(fp)
         
@@ -265,7 +271,25 @@ def get_diffusion_outputs_from_z(
 
 
 def plot_results_reconstruction(history, path):
+    """
+    Plot and save the results of sensor signal reconstruction.
 
+    Args:
+        history (dict): Dictionary containing the sensor signal reconstruction history.
+            The keys represent the engine IDs, and the values are dictionaries containing the following keys:
+            - "sensors_true_reconstructed": True sensor signals.
+            - "sensors_diff_reconstructed": Diffusion-based reconstructed sensor signals.
+            - "sensors_tshae_reconstructed": Decoder-based reconstructed sensor signals.
+            - "x_true_samples": True sensor signal samples.
+            - "x_diff_samples": Diffusion-based reconstructed sensor signal samples.
+            - "x_tshae_samples": Decoder-based reconstructed sensor signal samples.
+            - "sensors_true_reconstructed_full": Full true sensor signals (including the future samples).
+
+        path (str): Path to the directory where the results will be saved.
+
+    Returns:
+        None
+    """
     data = defaultdict(list)
     engine_ids = list(history.keys())
     for engine_id in engine_ids:
