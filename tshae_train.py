@@ -414,7 +414,8 @@ def main(config):
     tester = Tester(
         **config.trainer.tester, 
         path=path, 
-        model=model, 
+        model=model,
+        train_loader=train_loader, 
         val_loader=val_loader, 
         test_loader=test_loader, 
         rul_threshold=rul_threshold, 

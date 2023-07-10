@@ -38,7 +38,8 @@ class Tester:
     
     def __init__(self, 
                  path, 
-                 model, 
+                 model,
+                 train_loader, 
                  val_loader, 
                  test_loader, 
                  rul_threshold=125, 
@@ -56,6 +57,7 @@ class Tester:
 
         :param path: Path to the directory where the results will be saved
         :param model: The trained TSHAE model
+        :param train_loader: Train data loader
         :param val_loader: Validation data loader
         :param test_loader: Test data loader
         :param rul_threshold: Threshold value for RUL classification
@@ -70,6 +72,7 @@ class Tester:
         
         self.model = model
         self.metric = KNNRULmetric(rul_threshold=rul_threshold, n_neighbors=n_neighbors)
+        self.train_loader = train_loader
         self.test_loader = test_loader
         self.val_loader = val_loader
         self.device = "cpu"
@@ -77,7 +80,7 @@ class Tester:
         self.add_noise_test = add_noise_test
         self.noise_mean = noise_mean
         self.noise_std = noise_std
-        z, true_rul, rul_hat = self.get_z()
+        z, true_rul, rul_hat = self.get_z(self.val_loader)
         self.z = z
         self.true_rul = true_rul
         self.rul_hat = rul_hat
@@ -112,8 +115,9 @@ class Tester:
         rmse = (rmse / len(self.test_loader.dataset)) ** 0.5
         return score, rmse
 
-    def get_z(self):
+    def get_z(self, loader):
         """
+        :param loader: Dataset pytorch object, obj
         Calculates latent space (z), true RUL and predicted RUL for validation dataset
         :return: 3 np.arrays
         """
@@ -123,9 +127,9 @@ class Tester:
         true_rul = []
         predicted_rul = []
         with torch.no_grad():
-            for batch_idx, data in enumerate(self.val_loader):
-                batch_len = len(self.val_loader.dataset)
-                pairs_mode = self.val_loader.dataset.return_pairs
+            for batch_idx, data in enumerate(loader):
+                batch_len = len(loader)
+                pairs_mode = loader.dataset.return_pairs
 
                 if pairs_mode:
                     x, pos_x, neg_x, y, _, _ = data
@@ -148,18 +152,17 @@ class Tester:
                 predicted_rul.append(y_hat.numpy())
         return np.concatenate(z_space), np.concatenate(true_rul), np.concatenate(predicted_rul)
 
-    def viz_latent_space(self, title='', save=True, show=True):
+    def viz_latent_space(self, z, true_rul, title='', save=True, show=True):
         """
         Plots latent space.
         :param title: Title of the plot, str
         :param save: whether to save the plot or not
         :param show: whether to show the plot or not
         """
-        z = self.z
-        targets = self.true_rul
+        true_rul
         plt.figure(figsize=(8, 4))
-        if len(targets) > 0:
-            pp = plt.scatter(z[:, 0], z[:, 1], c=targets, s=8)
+        if len(true_rul) > 0:
+            pp = plt.scatter(z[:, 0], z[:, 1], c=true_rul, s=8)
         else:
             pp = plt.scatter(z[:, 0], z[:, 1])
         plt.xlabel('z - dim 1', fontsize=14)
@@ -274,7 +277,7 @@ class Tester:
         """
         Calls latent space visualization function and engine_run plot function.
         """
-        self.viz_latent_space(save=self.save, show=self.show)
+        self.viz_latent_space(z=self.z, true_rul=self.true_rul, save=self.save, show=self.show)
         self.plot_engine_run(save=self.save, show=self.show)
         # Calculate score and rmse on test dataset:
         score, rmse = self.get_test_score()
@@ -288,6 +291,19 @@ class Tester:
             save=self.save, 
             show=self.show
             )
+        # Plot Train latent Space:
+        z_train, true_rul_train, predicted_rul_train = self.get_z(self.train_loader)
+        self.viz_latent_space(z=z_train, true_rul=true_rul_train, title="_train_", save=self.save, show=self.show)
+        metric_train = self.metric.fit_calculate(z=z_train, rul=true_rul_train.ravel())
+        self.metric.plot_zspace(
+            z=z_train, 
+            rul=true_rul_train.ravel(), 
+            path=self.path, 
+            title="_train_" + str(round(metric_train, 4)), 
+            save=self.save, 
+            show=self.show
+            )
+        
         results = {"test_score": score, "test_rmse": rmse, "val_metric": metric}
         print(f"TEST Score: {score :6.4f}, RMSE: {rmse :6.4f}")
         with self.safe_open_w(self.path +"/results.json") as f:
@@ -340,13 +356,13 @@ def main(path):
         **config.trainer.tester, 
         path=path, 
         model=model, 
+        train_loader=train_loader,
         val_loader=val_loader, 
         test_loader=test_loader, 
         rul_threshold=rul_threshold, 
         n_neighbors=n_neighbors
         )
 
-    z, t, true_rul = tester.get_z()
     tester.test()
 
 
