@@ -2,8 +2,20 @@
 
 <img alt="Python" src="https://img.shields.io/badge/python-%2314354C.svg?style=for-the-badge&logo=python&logoColor=white"/> <img alt="PyTorch" src="https://img.shields.io/badge/PyTorch-%23EE4C2C.svg?style=for-the-badge&logo=PyTorch&logoColor=white" />
 
-This repository contains the code and data for my Master's thesis on Remaining Useful Life (RUL) prediction. The thesis focuses on the application of machine learning and deep learning techniques to predict the remaining useful life of equipment.
+This repository contains the code and data for my Master's thesis on Remaining Useful Life (RUL) prediction. The thesis focuses on the application of machine learning and deep learning techniques to predict the remaining useful life of equipment and generate synthetic data.
 
+The main contributions of this work are as follows:
+- The introduction of the Time-Series Hybrid Autoencoder (TSHAE): This novel autoencoder-based model is capable of estimating differentiable degradation trajectories in the latent space. By leveraging a complex loss function based on trajectory-based metric learning, regression, and reconstruction losses, the TSHAE constructs a low-dimensional and interpretable latent space.
+- An unsupervised method for extrapolating degradation trajectories: The
+study proposes a technique to extend the initial test degradation trajectory.
+By employing extrapolation techniques based on the most similar degra-
+dation pattern and trajectory using latent spatial properties, the model gen-
+erates complete degradation trajectories. 
+- Utilizing extrapolated trajectories for generating input sensor signals: This is achieved through a generative diffusion model based on an adapted U-Net architecture. By conditioning the model on the latent trajectory representation, the generative model can generate realistic input sensor signals that align with the extrapolated degradation trajectories.
+
+<img alt="diffusion prediction" src="./outputs/2023-07-08/16-56-25/sensor_reconstruction/frames/frames_eng_18.png">
+
+<img alt="diffusion prediction" src="./outputs/2023-07-08/16-56-25/sensor_reconstruction/timeseries/frames_eng_18.png">
 
 ## Table of Contents
 
@@ -55,8 +67,9 @@ The `Scripts` directory contains Python scripts for various purposes:
 
 
 
-- [cond_diffusion.py](cond_diffusion.py): Python script for conditional diffusion.
-- [cond_diffusion_original.py](cond_diffusion_original.py): Python script for original conditional diffusion.
+- [ddpm_models.py](./models/ddpm_models.py): Python script for conditional diffusion.
+- [tshae_models.py](./models/tshae_models.py): Python script for Time Series Hybrid Autoencoder (TSHAE).
+- [tshae_train.py](tshae_train.py): Python script for Time Series Hybrid Autoencoder.
 - [diffusion_plotter.py](diffusion_plotter.py): Python script for diffusion plotting.
 - [diffusion_tester.py](diffusion_tester.py): Python script for diffusion testing.
 - [finetuner.py](finetuner.py): Python script for fine-tuning.
@@ -113,5 +126,5 @@ foo@bar:~/MDS-Thesis-RULPrediction$ python tshae_test.py --checkpoint_path ./bes
 
 If you use this code or find it helpful, please consider citing the following references:
 
-[Provide references to relevant papers, articles, or resources related to your thesis]
+[in process]
 
