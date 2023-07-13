@@ -20,8 +20,7 @@ erates complete degradation trajectories.
 ## Table of Contents
 
 - [Environment Details](#Environment-Details)
-- [CMAPSSData](#cmapssdata)
-- [Notebooks](#notebooks)
+- [CMAPSSData](#cmapssdata) <!-- - [Notebooks](#notebooks) -->
 - [Scripts](#scripts)
 - [Configs](#configs)
 - [Outputs](#outputs)
@@ -123,14 +122,13 @@ To run multiple train TSHAE experiments with Hydra sweeper:
 foo@bar:~/MDS-Thesis-RULPrediction$  python tshae_train.py -m hydra.sweeper.max_batch_size=10
 ```
 To gather results of Hydra multirun experiment:
-```
+```console
 foo@bar:~/MDS-Thesis-RULPrediction$ python multirun_results_getter.py --multirun_path "./path_to_multirun_experiment/"
 ```
 To test TSHAE
 ```console
 foo@bar:~/MDS-Thesis-RULPrediction$ python tshae_test.py --checkpoint_path ./best_models/FD003/tshae/
 ```
-
 
 To infer generated sensor signals by DDPM model:
 ```console
