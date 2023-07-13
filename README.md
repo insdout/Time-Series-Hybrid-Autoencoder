@@ -130,10 +130,15 @@ To test TSHAE
 foo@bar:~/MDS-Thesis-RULPrediction$ python tshae_test.py --checkpoint_path ./best_models/FD003/tshae/
 ```
 
+
 To infer generated sensor signals by DDPM model:
 ```console
 foo@bar:~/MDS-Thesis-RULPrediction$ INSERT CODE HERE!
 ```
+
+```condole
+foo@bar:~/MDS-Thesis-RULPrediction$  python tshae_train.py -m hydra.sweeper.max_batch_size=10
+ ```
 
 
 ## References
