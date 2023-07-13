@@ -14,10 +14,10 @@ erates complete degradation trajectories.
 - Utilizing extrapolated trajectories for generating input sensor signals: This is achieved through a generative diffusion model based on an adapted U-Net architecture. By conditioning the model on the latent trajectory representation, the generative model can generate realistic input sensor signals that align with the extrapolated degradation trajectories.
 
 <p align="center">
-<img alt="diffusion prediction" src="./outputs/2023-07-08/16-56-25/sensor_reconstruction/frames/frames_eng_18.png" width="500">
+<img alt="diffusion prediction" src="./outputs/2023-07-08/16-56-25/sensor_reconstruction/frames/frames_eng_18.png" width="600">
 </p>
 <p align="center">
-<img alt="diffusion prediction" src="./outputs/2023-07-08/16-56-25/sensor_reconstruction/timeseries/frames_eng_18.png" width="500">
+<img alt="diffusion prediction" src="./outputs/2023-07-08/16-56-25/sensor_reconstruction/timeseries/frames_eng_18.png" width="600">
 </p>
 
 ## Table of Contents
