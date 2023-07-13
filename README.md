@@ -40,6 +40,8 @@ matplotlib==3.7.1
 torch==2.0.1
 scikit-learn==1.2.0
 scipy==1.9.3
+tqdm==4.65.0
+tslearn==0.6.1
 ```
 
 ## CMAPSSData
@@ -49,7 +51,7 @@ The `CMAPSSData` directory contains the necessary data for the RUL prediction ta
 The CMAPSSData directory contains the dataset files required for the RUL prediction task. 
 For more information about the dataset, refer to the [readme.txt](CMAPSSData/readme.txt) file in the CMAPSSData directory.
 
-
+<!---
 ## Notebooks
 
 The `Notebooks` directory contains Jupyter notebooks related to different stages of the project:
@@ -59,7 +61,7 @@ The `Notebooks` directory contains Jupyter notebooks related to different stages
 - [EDA.ipynb](EDA.ipynb): Notebook for exploratory data analysis.
 - [RVE_MVP.ipynb](RVE_MVP.ipynb): Notebook for RVE (Remaining Useful Life) MVP.
 - [metric.ipynb](metric.ipynb): Notebook for metrics analysis.
-
+--->
 
 ## Scripts
 
@@ -114,17 +116,16 @@ To use this code, follow these steps:
 2. Update the necessary configurations in the `Configs` directory to match your specific needs.
 3. Run the desired scripts or notebooks for data preprocessing, model training, testing, and evaluation.
 
-To train TSHAE:
-```console
-foo@bar:~/MDS-Thesis-RULPrediction$ INSERT CODE HERE!
-```
 
 To run multiple train TSHAE experiments with Hydra sweeper:
 
 ```console
-foo@bar:~/MDS-Thesis-RULPrediction$ INSERT CODE HERE!
+foo@bar:~/MDS-Thesis-RULPrediction$  python tshae_train.py -m hydra.sweeper.max_batch_size=10
 ```
-
+To gather results of Hydra multirun experiment:
+```
+foo@bar:~/MDS-Thesis-RULPrediction$ python multirun_results_getter.py --multirun_path "./path_to_multirun_experiment/"
+```
 To test TSHAE
 ```console
 foo@bar:~/MDS-Thesis-RULPrediction$ python tshae_test.py --checkpoint_path ./best_models/FD003/tshae/
@@ -133,12 +134,9 @@ foo@bar:~/MDS-Thesis-RULPrediction$ python tshae_test.py --checkpoint_path ./bes
 
 To infer generated sensor signals by DDPM model:
 ```console
-foo@bar:~/MDS-Thesis-RULPrediction$ INSERT CODE HERE!
+foo@bar:~/MDS-Thesis-RULPrediction$ python ddpm_infer_validation.py
 ```
 
-```condole
-foo@bar:~/MDS-Thesis-RULPrediction$  python tshae_train.py -m hydra.sweeper.max_batch_size=10
- ```
 
 
 ## References
