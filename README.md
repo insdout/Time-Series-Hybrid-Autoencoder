@@ -63,25 +63,22 @@ The `Notebooks` directory contains Jupyter notebooks related to different stages
 
 ## Scripts
 
-The `Scripts` directory contains Python scripts for various purposes:
 
-
+Here are short descriptions of the scripts used in this project:
 
 - [ddpm_models.py](./models/ddpm_models.py): Python script for conditional diffusion.
-- [tshae_models.py](./models/tshae_models.py): Python script for Time Series Hybrid Autoencoder (TSHAE).
-- [tshae_train.py](tshae_train.py): Python script for Time Series Hybrid Autoencoder.
-- [diffusion_plotter.py](diffusion_plotter.py): Python script for diffusion plotting.
-- [diffusion_tester.py](diffusion_tester.py): Python script for diffusion testing.
-- [finetuner.py](finetuner.py): Python script for fine-tuning.
-- [loss.py](loss.py): Python script for loss functions.
-- [main.py](main.py): Python script for main execution.
-- [metric.py](metric.py): Python script for metrics calculations.
-- [metric_dataloader.py](metric_dataloader.py): Python script for metric dataloader.
-- [models.py](models.py): Python script for model definitions.
+- [tshae_models.py](./models/tshae_models.py): Python script with Time Series Hybrid Autoencoder (TSHAE).
+- [tshae_train.py](tshae_train.py): Python script for Time Series Hybrid Autoencoder training.
+- [tshae_test.py](tshae_train.py): Python script for Time Series Hybrid Autoencoder test.
+- [ddpm_train.py](ddpm_train.py): Python script for diffusion model training.
+- [ddpm_infer_validation.py](ddpm_infer_validation.py): Python script for genrating sensor data for validation dataset.
+- [ddpm_infer_latent.py](ddpm_infer_latent.py): Python script for genrating sensor data for latent space trajectories.
+- [noise_tester.py](noise_tester.py): Python script for testing TSHAE for noise resistance.
+- [loss.py](./utils/loss.py): Python script for loss functions.
+- [metric.py](./utils/metric.py): Python script for metrics calculations.
+- [metric_dataloader.py](./utils/metric_dataloader.py): Python script for C-MAPSS dataloader.
 - [multirun_results_getter.py](multirun_results_getter.py): Python script for getting multi-run results.
-- [noise_tester.py](noise_tester.py): Python script for noise testing.
-- [test.py](test.py): Python script for testing.
-- [train.py](train.py): Python script for training
+
 
 ## Configs
 
@@ -92,11 +89,14 @@ The project utilizes the Hydra library for handling and managing these configura
 - `config.yaml`: General project configuration file.
 - `data_preprocessor`: Configuration files for data preprocessing related settings.
 - `diffusion`: Configuration files for diffusion-related settings.
+- `knnmetric`: Configuration files for latent space KNN metric.
 - `model`: Configuration files for model selection and architecture settings.
 - `loss`: Configuration files for different loss functions.
+- `noise_tester`: Configuration files for testing TSHAE for noise resistance.
 - `optimizer`: Configuration files for optimizer settings.
 - `scheduler`: Configuration files for learning rate scheduler settings.
 - `random_seed`: Configuration file for setting random seed.
+- `trainer`: Configuration files for training TSHAE.
 
 ## Outputs
 
@@ -114,17 +114,31 @@ To use this code, follow these steps:
 2. Update the necessary configurations in the `Configs` directory to match your specific needs.
 3. Run the desired scripts or notebooks for data preprocessing, model training, testing, and evaluation.
 
-Please refer to the specific scripts or notebooks for detailed instructions and usage examples.
+To train TSHAE:
+```console
+foo@bar:~/MDS-Thesis-RULPrediction$ INSERT CODE HERE!
+```
 
+To run multiple train TSHAE experiments with Hydra sweeper:
+
+```console
+foo@bar:~/MDS-Thesis-RULPrediction$ INSERT CODE HERE!
+```
+
+To test TSHAE
 ```console
 foo@bar:~/MDS-Thesis-RULPrediction$ python tshae_test.py --checkpoint_path ./best_models/FD003/tshae/
 ```
 
+To infer generated sensor signals by DDPM model:
+```console
+foo@bar:~/MDS-Thesis-RULPrediction$ INSERT CODE HERE!
+```
 
 
 ## References
 
 If you use this code or find it helpful, please consider citing the following references:
 
-[in process]
+[paper in process]
 
