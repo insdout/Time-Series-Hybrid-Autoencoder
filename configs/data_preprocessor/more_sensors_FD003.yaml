@@ -8,14 +8,14 @@
   fix_seed: ${random_seed.fix}
  
   downsample_healthy_train: False
-  downsample_healthy_validation: True
+  downsample_healthy_validation: False
   downsample_healthy_test: False
   downsample_healthy_train_p: 0
   downsample_healthy_validation_p: 0.8
   downsample_healthy_test_p: 0
 
   train_ds_mode: "train"
-  train_ds_return_pairs: True
+  train_ds_return_pairs: False
   train_ds_eps: 2
   train_ds_max_eps: 10
   train_ds_triplet_healthy_rul: 125
@@ -27,7 +27,7 @@
   test_ds_triplet_healthy_rul: 125
 
   val_ds_mode: "train"
-  val_ds_return_pairs: True
+  val_ds_return_pairs: False
   val_ds_eps: 2
   val_ds_max_eps: 10
   val_ds_triplet_healthy_rul: 125

@@ -1,6 +1,6 @@
 defaults:
   - data_preprocessor: more_sensors_FD003
-  - model: base_rve
+  - model: gmvae
   - optimizer: adam
   - scheduler: scheduler
   - loss: triplet

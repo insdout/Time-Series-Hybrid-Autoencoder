@@ -62,6 +62,22 @@ class TripletLoss:
         return self.criterion(z, z_pos, z_neg)
 
 
+class GMVAELoss:
+    def __init__(self, regression_weight=1.0):
+        pass
+
+    def __call__(self):
+        pass
+
+
+class GMVAETripletLoss:
+    def __init__(self):
+        pass
+
+    def __call__(self):
+        pass
+
+
 class TotalLoss:
     def __init__(self, conf_file):
         self.losses = [instantiate(conf_file.loss[loss_name]) for loss_name in conf_file.loss.total_loss]
