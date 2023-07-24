@@ -1,15 +1,16 @@
 import torch
-import torch.optim as optim
 import numpy as np
 import json
 import logging
 import os
-from utils.gmvae_loss import TotalLoss
+from utils.gmvae_loss import GMVAELoss
 from utils.gmvae_utils import get_model, NumpyEncoder
 from utils.metric_dataloader import MetricDataPreprocessor
 import hydra
 from hydra.utils import instantiate
 from collections import defaultdict
+from tqdm import tqdm
+from tshae_test import Tester
 
 
 log = logging.getLogger(__name__)
@@ -70,6 +71,8 @@ class Trainer:
         self.model = model.to(self.device)
 
         self.path = path
+        print(f"train dataloader len: {len(self.train_loader)} train dataset: {len(self.train_loader.dataset)} batches: {len(self.train_loader.dataset)/len(self.train_loader)}")
+        print(f"test dataloader len: {len(self.test_loader)} train dataset: {len(self.test_loader.dataset)} batches: {len(self.test_loader.dataset)/len(self.test_loader)}")
 
     def train(self, epochs):
         """
@@ -124,7 +127,7 @@ class Trainer:
         pred_labels = []
         true_labels = []
 
-        for batch_idx, data in enumerate(dataloader):
+        for batch_idx, data in tqdm(enumerate(dataloader), total=len(dataloader)):
             batch_len = len(dataloader.dataset)
             pairs_mode = dataloader.dataset.return_pairs
 
@@ -152,7 +155,7 @@ class Trainer:
 
         pred_labels = torch.tensor(np.array(pred_labels))
         true_labels = torch.tensor(np.array(true_labels))
-        rmse = torch.nn.functional.mse_loss(pred_labels, true_labels).item()
+        rmse = (torch.nn.functional.mse_loss(pred_labels, true_labels).item())**0.5
         score = self.score(true_labels, pred_labels).item()
         train_loss = running_loss / len(dataloader.dataset)
         cond_entropy = running_entropy / len(dataloader.dataset)
@@ -177,7 +180,7 @@ class Trainer:
         true_labels = []
 
         with torch.no_grad():
-            for batch_idx, data in enumerate(dataloader):
+            for batch_idx, data in tqdm(enumerate(dataloader), total=len(dataloader)):
                 batch_len = len(dataloader.dataset)
                 pairs_mode = dataloader.dataset.return_pairs
 
@@ -197,7 +200,7 @@ class Trainer:
         self.history["true_rul"].append(true_labels)
         pred_labels = torch.tensor(np.array(pred_labels))
         true_labels = torch.tensor(np.array(true_labels))
-        rmse = torch.nn.functional.mse_loss(pred_labels, true_labels).item()
+        rmse = (torch.nn.functional.mse_loss(pred_labels, true_labels).item())**0.5
         score = self.score(true_labels, pred_labels).item()
 
         test_loss = running_loss / len(dataloader.dataset)
@@ -272,9 +275,11 @@ def main(config):
     # Instantiating the optimizer:
     optimizer = instantiate(config.optimizer, params=model.parameters())
 
-    criterion = TotalLoss(k=config.model.k)
+    #criterion = TotalLoss(k=config.model.k)
+    criterion = GMVAELoss()
 
     device = "cuda"
+    log.info("Ready to train.")
     trainer = Trainer(
         model=model,
         optimizer=optimizer,
@@ -285,8 +290,22 @@ def main(config):
         device=device,
         path=output_dir
         )
-    trainer.train(100)
+    trainer.train(10)
 
+    # Running test utils:
+    rul_threshold = config.knnmetric.rul_threshold
+    n_neighbors = config.knnmetric.n_neighbors
+    tester = Tester(
+        **config.trainer.tester, 
+        path=output_dir, 
+        model=model,
+        train_loader=train_loader, 
+        val_loader=val_loader, 
+        test_loader=test_loader, 
+        rul_threshold=rul_threshold, 
+        n_neighbors=n_neighbors
+        )
+    tester.test()
 
 if __name__ == "__main__":
     main()

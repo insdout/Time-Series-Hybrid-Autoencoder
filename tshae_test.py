@@ -23,7 +23,7 @@ class Tester:
         """
         Computes score according to original CMAPSS dataset paper.
         :param y: true RUL
-        :param y_hat: predicted RUL
+        :param rul_hat: predicted RUL
         :return: float
         """
         score = 0
@@ -36,19 +36,19 @@ class Tester:
                 score += np.exp((true_rul[i] - rul_hat[i]) / 13.0) - 1
         return score
     
-    def __init__(self, 
-                 path, 
+    def __init__(self,
+                 path,
                  model,
-                 train_loader, 
-                 val_loader, 
-                 test_loader, 
-                 rul_threshold=125, 
-                 n_neighbors=3, 
-                 add_noise_val=False, 
-                 add_noise_test=False, 
-                 noise_mean=0, 
-                 noise_std=1, 
-                 save=True, 
+                 train_loader,
+                 val_loader,
+                 test_loader,
+                 rul_threshold=125,
+                 n_neighbors=3,
+                 add_noise_val=False,
+                 add_noise_test=False,
+                 noise_mean=0,
+                 noise_std=1,
+                 save=True,
                  show=False
                  ):
         
@@ -105,7 +105,8 @@ class Tester:
                     x += torch.empty_like(x).normal_(mean=self.noise_mean, std=self.noise_std)
                 x, true_rul = x.to(self.device), true_rul.to(self.device)
 
-                rul_hat, *_ = self.model(x)
+                out_dict = self.model(x)
+                rul_hat = out_dict["rul_hat"]
                 
                 loss = nn.MSELoss()(rul_hat, true_rul)
 
@@ -137,7 +138,11 @@ class Tester:
                     if self.add_noise_val:
                         x += torch.empty_like(x).normal_(mean=self.noise_mean, std=self.noise_std)
                     x, y = x.to(self.device), y.to(self.device)
-                    y_hat, z, mean, log_var, x_hat = self.model(x)
+
+                    out_dict = self.model(x)
+                    rul_hat = out_dict["rul_hat"]
+                    z = out_dict["z_latent"]
+
 
                 else:
                     x, y = data
@@ -145,11 +150,14 @@ class Tester:
                     if self.add_noise_val:
                         x += torch.empty_like(x).normal_(mean=self.noise_mean, std=self.noise_std)
                     x, y = x.to(self.device), y.to(self.device)
-                    y_hat, z, mean, log_var, x_hat = self.model(x)
+   
+                    out_dict = self.model(x)
+                    rul_hat = out_dict["rul_hat"]
+                    z = out_dict["z_latent"]
                    
                 z_space.append(z.numpy())
                 true_rul.append(y.numpy())
-                predicted_rul.append(y_hat.numpy())
+                predicted_rul.append(rul_hat.numpy())
         return np.concatenate(z_space), np.concatenate(true_rul), np.concatenate(predicted_rul)
 
     def viz_latent_space(self, z, true_rul, title='', save=True, show=True):
@@ -204,13 +212,16 @@ class Tester:
                 # Adding Gaussian noise if add_noise_val == True:
                 if self.add_noise_val:
                     x += torch.empty_like(x).normal_(mean=self.noise_mean, std=self.noise_std)
-                rul_hat, z, *_ = self.model(x)
+                out_dict = self.model(x)
+                rul_hat = out_dict["rul_hat"]
+                z = out_dict["z_latent"]
+
                 history[engine_id]['rul'] = true_rul.numpy()
                 history[engine_id]['rul_hat'] = rul_hat.numpy()
                 history[engine_id]['z'] = z.numpy()
 
         return history
-    
+
     def plot_engine_run(self, title="engine_run", save=True, show=False):
         """
         Plots each engine_id (unit number) trajectory over whole latent space of validation dataset.
@@ -261,11 +272,11 @@ class Tester:
                 plt.tight_layout()
                 plt.savefig(os.path.join(images_dir, file_name))
                 # Clear the current axes.
-                plt.cla() 
+                plt.cla()
                 # Clear the current figure.
-                plt.clf() 
+                plt.clf()
                 # Closes all the figure windows.
-                plt.close('all')   
+                plt.close('all')
                 gc.collect()
 
             if show:
@@ -284,11 +295,11 @@ class Tester:
         # Calculate latent space metric for validation dataset:
         metric = self.metric.fit_calculate(z=self.z, rul=self.true_rul.ravel())
         self.metric.plot_zspace(
-            z=self.z, 
-            rul=self.true_rul.ravel(), 
-            path=self.path, 
-            title=str(round(metric, 4)), 
-            save=self.save, 
+            z=self.z,
+            rul=self.true_rul.ravel(),
+            path=self.path,
+            title=str(round(metric, 4)),
+            save=self.save,
             show=self.show
             )
         # Plot Train latent Space:
@@ -296,11 +307,11 @@ class Tester:
         self.viz_latent_space(z=z_train, true_rul=true_rul_train, title="_train_", save=self.save, show=self.show)
         metric_train = self.metric.fit_calculate(z=z_train, rul=true_rul_train.ravel())
         self.metric.plot_zspace(
-            z=z_train, 
-            rul=true_rul_train.ravel(), 
-            path=self.path, 
-            title="_train_" + str(round(metric_train, 4)), 
-            save=self.save, 
+            z=z_train,
+            rul=true_rul_train.ravel(),
+            path=self.path,
+            title="_train_" + str(round(metric_train, 4)),
+            save=self.save,
             show=self.show
             )
         
@@ -325,12 +336,12 @@ def main(path):
 
     :param path: Path to the saved TSHAE model.
     """
-    
+
     config_path = path + ".hydra/config.yaml"
     model_path = path + "tshae_best_model.pt"
     config = OmegaConf.load(config_path)
     model = load_tshae_model(model_path)
-    
+
     # fix random seeds:
     if config.random_seed.fix == True:
         import random
@@ -348,18 +359,18 @@ def main(path):
 
     preproc = MetricDataPreprocessor(**config.data_preprocessor)
     train_loader, test_loader, val_loader = preproc.get_dataloaders()
-    
+
     # Running test utils:
     rul_threshold = config.knnmetric.rul_threshold
     n_neighbors = config.knnmetric.n_neighbors
     tester = Tester(
-        **config.trainer.tester, 
-        path=path, 
-        model=model, 
+        **config.trainer.tester,
+        path=path,
+        model=model,
         train_loader=train_loader,
-        val_loader=val_loader, 
-        test_loader=test_loader, 
-        rul_threshold=rul_threshold, 
+        val_loader=val_loader,
+        test_loader=test_loader,
+        rul_threshold=rul_threshold,
         n_neighbors=n_neighbors
         )
 
@@ -368,7 +379,7 @@ def main(path):
 
 if __name__ == "__main__":
     import argparse
-    
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--checkpoint_path", type=str, required=True,
                         help="Path to the saved TSHAE model.")

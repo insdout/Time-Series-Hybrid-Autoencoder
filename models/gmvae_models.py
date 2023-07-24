@@ -16,7 +16,8 @@ class Qy_x(nn.Module):
         h1 = self.encoder(x)
         qy_logit = self.qy_logit(h1)
         qy = self.qy(qy_logit)
-        return qy_logit, qy
+        y = torch.nn.functional.gumbel_softmax(qy_logit, hard=True)
+        return qy_logit, qy, y
 
 
 class Qz_xy(nn.Module):
@@ -235,26 +236,14 @@ class GMVAE(nn.Module):
     def forward(self, x):
         k = self.k
         batch_size = x.shape[0]
-        y_ = torch.zeros([batch_size, k]).to(x.device)
-        qy_logit, qy = self.qy_x(x)
-        z, zm, zv, zm_prior, zv_prior, px, rul_hat_i = [[None] * k for i in range(7)]
-        for i in range(k):
-            y = y_ + torch.eye(k).to(x.device)[i]
-            z[i], zm[i], zv[i] = self.qz_xy(x, y)
-            zm_prior[i], zv_prior[i], px[i] = self.px_z(z[i], y)
-            rul_hat_i[i] = self.regressor(z[i])
+        qy_logit, qy, y = self.qy_x(x)
+        z, zm, zv = self.qz_xy(x, y)
+        zm_prior, zv_prior, px = self.px_z(z, y)
+        rul_hat = self.regressor(z)
 
-        # Inference for x_hat:
-        with torch.no_grad():
-            y_hat = torch.argmax(qy, dim=-1)
-            y_temp = torch.zeros(batch_size, k)
-            y_temp = torch.scatter(y_, 1, y_hat.unsqueeze(1), 1)
-            z_hat, *_ = self.qz_xy(x, y_temp)
-            *_, x_hat = self.px_z(z_hat, y_temp)
-            rul_hat = self.regressor(z_hat)
 
         out_dict = {
-            "z": z,
+            "z_latent": z,
             "zm": zm,
             "zv": zv,
             "zm_prior": zm_prior,
@@ -262,10 +251,9 @@ class GMVAE(nn.Module):
             "qy_logit": qy_logit,
             "qy": qy,
             "px": px,
-            "rul_hat_per_class": rul_hat_i,
             "rul_hat": rul_hat,
-            "x_hat": x_hat,
-            "z_latent": z_hat
+            "x_hat": px,
+            "y": y
             }
 
         return out_dict

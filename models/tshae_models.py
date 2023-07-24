@@ -209,8 +209,14 @@ class RVEAttention_MH(nn.Module):
         if self.decode_mode:
             x_hat = self.decoder(z)
             return y_hat, z, mean, log_var, x_hat
-
-        return y_hat, z, mean, log_var
+        out_dict = {
+            "rul_hat": y_hat,
+            "z_latent": z,
+            "mean": mean,
+            "log_var": log_var,
+            "x_hat": x_hat
+            }
+        return out_dict
 
 
 class MultiplicativeAttention(nn.Module):
@@ -279,7 +285,14 @@ class RVEAttention_MP(nn.Module):
             x_hat = self.decoder(z)
             return y_hat, z, mean, log_var, x_hat
 
-        return y_hat, z, mean, log_var
+        out_dict = {
+            "rul_hat": y_hat,
+            "z_latent": z,
+            "mean": mean,
+            "log_var": log_var,
+            "x_hat": x_hat
+            }
+        return out_dict
     
 
 class OriginalEncoder(nn.Module):
@@ -332,9 +345,11 @@ class OriginalRVE(nn.Module):
     def forward(self, x):
         z, mean, log_var = self.encoder(x)
         y_hat = self.regressor(z)
-        return y_hat, z, mean, log_var, x
-
-
-
-
-    
+        out_dict = {
+            "rul_hat": y_hat,
+            "z_latent": z,
+            "mean": mean,
+            "log_var": log_var,
+            "x_hat": None
+            }
+        return out_dict

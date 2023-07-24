@@ -1,8 +1,8 @@
-k: 10
+k: 2
 input_size: 21
 hidden_size: 256 #512
 latent_dim: 2
-regression_dims: 100
-regression_dropout: 0.7
+regression_dims: 128
+regression_dropout: 0.5
 encoder_kwargs: {dropout_layer: 0.0, dropout_lstm: 0.0}
 decoder_kwargs: {window_size: 32, dropout_layer: 0.0, dropout_lstm: 0.0}
