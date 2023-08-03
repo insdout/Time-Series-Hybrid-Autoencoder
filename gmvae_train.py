@@ -70,6 +70,8 @@ class Trainer:
         self.device = torch.device("cuda" if (torch.cuda.is_available() and device == "cuda") else "cpu")
         self.model = model.to(self.device)
 
+        self.best_rmse = float('inf')
+
         self.path = path
         print(f"train dataloader len: {len(self.train_loader)} train dataset: {len(self.train_loader.dataset)} batches: {len(self.train_loader.dataset)/len(self.train_loader)}")
         print(f"test dataloader len: {len(self.test_loader)} train dataset: {len(self.test_loader.dataset)} batches: {len(self.test_loader.dataset)/len(self.test_loader)}")
@@ -101,6 +103,10 @@ class Trainer:
             test_loss = self.history["test_loss"][-1]
             test_score = self.history["test_score"][-1]
             test_rmse = self.history["test_rmse"][-1]
+
+            if test_rmse < self.best_rmse:
+                self.best_rmse = test_rmse
+                self.save_model(path=self.path)
 
             log.info(f"Epoch [{epoch+1}/{epochs}], Train Loss: {train_loss:.4f}, "
                      f"Test Loss: {test_loss:.4f} Train score: {train_score:.4f} Test score: {test_score:.4f}, "
@@ -258,6 +264,11 @@ class Trainer:
             json.dump(data, f, indent=indent, cls=NumpyEncoder)
         log.info(f"JSON data saved to: {file_path}")
 
+    def save_model(self, path):
+        model_path = os.path.join(path, "best_model.pt")
+        torch.save(self.model.state_dict(), model_path)
+        print(f"Saved best model: {model_path}")
+
 
 @hydra.main(version_base=None, config_path="./configs", config_name="config.yaml")
 def main(config):
@@ -276,7 +287,7 @@ def main(config):
     optimizer = instantiate(config.optimizer, params=model.parameters())
 
     #criterion = TotalLoss(k=config.model.k)
-    criterion = GMVAELoss()
+    criterion = GMVAELoss(**config.loss)
 
     device = "cuda"
     log.info("Ready to train.")
@@ -290,7 +301,12 @@ def main(config):
         device=device,
         path=output_dir
         )
-    trainer.train(10)
+    trainer.train(30)
+
+    model_path = os.path.join(output_dir, "best_model.pt")
+    model = get_model(**config.model)
+    model.load_state_dict(torch.load(model_path))
+    model.eval()
 
     # Running test utils:
     rul_threshold = config.knnmetric.rul_threshold

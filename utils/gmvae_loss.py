@@ -14,7 +14,7 @@ class MSE:
         return loss
 
 class GMVAELoss:
-    def __init__(self, w_rec=1, w_cat=1, w_reg=1, w_gauss=1,eps=1e-8):
+    def __init__(self, w_rec=1, w_cat=1, w_reg=1, w_gauss=1, eps=1e-8):
         self.eps = eps
         self.w_rec = w_rec
         self.w_cat = w_cat

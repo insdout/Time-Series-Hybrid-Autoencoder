@@ -3,7 +3,7 @@ defaults:
   - model: gmvae
   - optimizer: adam
   - scheduler: scheduler
-  - loss: triplet
+  - loss: gmvae
   - trainer: base_trainer
   - random_seed: random_seed
   - diffusion: diffusion
@@ -14,17 +14,21 @@ defaults:
 hydra:
   sweeper:
     params:
-      random_seed.seed: 1, 5, 10, 15, 20, 25, 30, 35, 40, 42, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90
+      #loss.w_rec: 0, 0.5, 1, 1.5, 2
+      #loss.w_cat: 0, 0.5, 1, 1.5, 2
+      #loss.w_reg: 0, 0.5, 1, 1.5, 2
+      loss.w_gauss: 0, 0.5, 1, 1.5, 2
+      #random_seed.seed: 1, 5, 10, 15, 20, 25, 30, 35, 40, 42, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90
       #model.encoder.dropout:  0.5
       #model.decoder.dropout_layer: 0.7
       #model.rve.dropout_regressor: 0.8
       #model.rve.regression_dims: 100
       #optimizer.lr: 0.001, 0.002, 0.005
 
-      loss.TripletLoss.weight: 0, 75, 150
-      loss.ReconLoss.weight: 1.75
+      #loss.TripletLoss.weight: 0, 75, 150
+      #loss.ReconLoss.weight: 1.75
       #optimizer.lr: 0.002, 0.003
-      model.encoder.dropout: 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8
+      #model.encoder.dropout: 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8
       #model.decoder.dropout_layer: 0.3, 0.5, 0.7, 0.8
       #model.rve.dropout_regressor: 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8
       #model.rve.regression_dims: 50, 100, 150
