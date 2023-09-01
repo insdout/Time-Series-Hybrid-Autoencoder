@@ -1,6 +1,4 @@
 ''' 
-This script does conditional image generation on MNIST, using a diffusion model
-
 This code is modified from,
 https://github.com/cloneofsimo/minDiffusion
 
@@ -91,7 +89,6 @@ class UnetUp(nn.Module):
         self.model = nn.Sequential(*layers)
 
     def forward(self, x, skip):
-        #print("     UP shapes:", x.shape, skip.shape)
         x = torch.cat((x, skip), 1)
         x = self.model(x)
         return x
@@ -137,7 +134,6 @@ class ContextUnet(nn.Module):
         self.contextembed2 = EmbedFC(z_dim , 1*n_feat)
 
         self.up0 = nn.Sequential(
-            # nn.ConvTranspose2d(6 * n_feat, 2 * n_feat, 7, 7), # when concat temb and cemb end up w 6*n_feat
             nn.ConvTranspose2d(2 * n_feat, 2 * n_feat, 8, 8), # otherwise just have 2*n_feat
             nn.GroupNorm(8, 2 * n_feat),
             nn.ReLU(),
@@ -153,34 +149,13 @@ class ContextUnet(nn.Module):
         )
 
     def forward(self, x, c, t, context_mask):
-        # x is (noisy) image, c is context label, t is timestep, 
-        # context_mask says which samples to block the context on
-        #print("===============================")
-        #print("Forward | shape x:", x.shape)
         x = self.init_conv(x)
-        #print("Forward | shape init conv:", x.shape)
         down1 = self.down1(x)
-        #print("Forward | shape down1:", down1.shape)
         down2 = self.down2(down1)
-        #print("Forward | shape down2:", down2.shape)
         hiddenvec = self.to_vec(down2)
-        #print("Forward | shape hiddenvec:", hiddenvec.shape)
-        #print("===============================")
-        # convert context to one hot embedding
- 
-        
-        # mask out context if context_mask == 1
-        #print("===============================")
-        #print("cm shape 1:", context_mask.shape)
-        #print("cm shape 2:", context_mask.shape, "z_dim:", self.z_dim)
         context_mask = context_mask.repeat(1, self.z_dim)
-        #print("cm shape 3:", context_mask.shape)
         context_mask = (-1*(1-context_mask)) # need to flip 0 <-> 1
-        #print("c: ", c)
-        #print("context mask: ", context_mask)
         c = c * context_mask
-        #print("c after: ", c)
-        #print("===============================")
         
         # embed context, time step
         cemb1 = self.contextembed1(c).view(-1, self.n_feat * 2, 1, 1)
@@ -189,23 +164,10 @@ class ContextUnet(nn.Module):
         temb2 = self.timeembed2(t).view(-1, self.n_feat, 1, 1)
 
         # could concatenate the context embedding here instead of adaGN
-        # hiddenvec = torch.cat((hiddenvec, temb1, cemb1), 1)
-        #print("===============================")
-        #print("Forward UP| shape hiddenvec:", hiddenvec.shape)
         up1 = self.up0(hiddenvec)
-        #print("Forward UP| shape up1:", up1.shape)
-        # up2 = self.up1(up1, down2) # if want to avoid add and multiply embeddings
-        #print("temb1", temb1.shape)
-        #print("cemb1", cemb1.shape)
-        #print("up1", up1.shape)
-        #print(cemb1*up1+ temb1)
         up2 = self.up1(cemb1*up1+ temb1, down2)  # add and multiply embeddings
-        #print("Forward UP| shape up2:", up2.shape)
         up3 = self.up2(cemb2*up2+ temb2, down1)
-        #print("Forward UP| shape up3:", up3.shape)
         out = self.out(torch.cat((up3, x), 1))
-        #print("Forward UP| shape out:", out.shape)
-        #print("===============================")
         return out
 
 
@@ -259,7 +221,6 @@ class DDPM(nn.Module):
         """
 
         _ts = torch.randint(1, self.n_T+1, (x.shape[0],)).to(self.device)  # t ~ Uniform(0, n_T)
-        #print("_ts shape:", _ts.shape)
         noise = torch.randn_like(x)  # eps ~ N(0, 1)
 
         x_t = (
@@ -267,39 +228,34 @@ class DDPM(nn.Module):
             + self.sqrtmab[_ts, None, None, None] * noise
         )  # This is the x_t, which is sqrt(alphabar) x_0 + sqrt(1-alphabar) * eps
         # We should predict the "error term" from this x_t. Loss is what we return.
-        #print("x_t shape:", x_t.shape)
         # dropout context with some probability
         batch_size, z_dim = c.shape
         context_mask = torch.bernoulli(torch.zeros((batch_size, 1))+self.drop_prob).to(self.device)
-        #print("train context mask mean", context_mask.mean())
-        #print("TRUE CONTEXT MASK:", context_mask)
+
         # return MSE between added noise, and our predicted noise
         return self.loss_mse(noise, self.nn_model(x_t, c, _ts / self.n_T, context_mask))
     
     def sample_cmapss(self, n_sample, size, device, z_space_contexts, guide_w = 0.0):
-        #size = (1, 28, 28)
+
         # z_space_contexts = (N, z_dim) = (N, 2)
         num_z_contexts, z_dim = z_space_contexts.shape
 
         x_i = torch.randn(n_sample*num_z_contexts, *size).to(device)  # x_T ~ N(0, 1), sample initial noise
         c_i = z_space_contexts.to(device) # latent space vectors
-        #print("x_i shape: ", x_i.shape)
-        #print("c_i shape: ", c_i.shape)
+
         c_i = c_i.repeat(n_sample, 1)
-        #print("c_i repeated shape: ", c_i.shape)
+
 
         num_inputs, z_dim = c_i.shape
         # don't drop context at test time
         context_mask = torch.zeros((num_inputs, 1)).to(device)
-        #print("context_mask shape: ", context_mask.shape)
+
         
         # double the batch
         c_i = c_i.repeat(2, 1)
-        #print("c_i doubled shape: ", c_i.shape)
         context_mask = context_mask.repeat(2, 1)
-        #print("context_mask doubled shape: ", context_mask.shape)
         context_mask[num_inputs:] = 1. # makes second half of batch context free
-        #print("context mask mean", context_mask.mean())
+
 
         x_i_store = [] # keep track of generated steps in case want to plot something 
         print()
@@ -317,12 +273,9 @@ class DDPM(nn.Module):
             z = torch.randn(n_sample*num_z_contexts, *size).to(device) if i > 1 else 0
 
             # split predictions and compute weighting
-            #import os, psutil; 
+            #import os, psutil
             #print(round(psutil.Process(os.getpid()).memory_info().rss / 1024 ** 3,2), "GB")
-            #print("devices:", x_i.device, c_i.device, t_is.device, context_mask.device)
             eps = self.nn_model(x_i, c_i, t_is, context_mask)
-            #print("model done")
-            #print("eps shape", eps.shape)
             eps1 = eps[:n_sample*num_z_contexts]
             eps2 = eps[n_sample*num_z_contexts:]
             eps = (1+guide_w)*eps1 - guide_w*eps2
@@ -333,7 +286,6 @@ class DDPM(nn.Module):
             )
             if i%20==0 or i==self.n_T or i<8:
                 x_i_store.append(x_i.detach().cpu().numpy())
-        
+
         x_i_store = np.array(x_i_store)
-        #print("end sample cmapss")
         return x_i, x_i_store

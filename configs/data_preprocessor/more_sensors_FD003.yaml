@@ -34,12 +34,12 @@
 
   train_dl_batch_size: 256
   train_dl_shuffle: True 
-  train_dl_num_workers: 8
+  train_dl_num_workers: 2
 
   test_dl_batch_size: 256
   test_dl_shuffle: False 
-  test_dl_num_workers: 8
+  test_dl_num_workers: 2
 
   val_dl_batch_size: 256
   val_dl_shuffle: True 
-  val_dl_num_workers: 8
+  val_dl_num_workers: 2
