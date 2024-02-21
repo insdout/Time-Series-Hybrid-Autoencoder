@@ -143,6 +143,6 @@ foo@bar:~/MDS-Thesis-RULPrediction$ python ddpm_infer_validation.py
 ## References
 
 Draft of the paper:  
-[Download the TSHAE paper](2023_TSHAE_paper.pdf)
+[View the TSHAE paper](2023_TSHAE_paper.pdf)
 
 
