@@ -250,7 +250,11 @@ class MetricDataPreprocessor:
         # create RUL values according to the piece-wise target function
         train_final_rul = np.zeros(train['unit_nr'].nunique())
         train = self._get_rul(train, train_final_rul)
-        train['RUL'].clip(upper=max_rul, inplace=True)
+        
+        # train['RUL'].clip(upper=max_rul, inplace=True) 
+        # FutureWarning: A value is trying to be set on a copy of a DataFrame or Series through chained assignment using an inplace method.
+        train['RUL'] = train['RUL'].clip(upper=max_rul)
+
         train = train.drop(drop_sensors, axis=1)
 
         test_file = 'test_' + dataset_name + '.txt'
@@ -260,9 +264,13 @@ class MetricDataPreprocessor:
         y_test = pd.read_csv((dir_path + 'RUL_' + dataset_name + '.txt'), sep=r'\s+', header=None,
                              names=['RemainingUsefulLife'])
         test_final_rul = y_test.values.squeeze()
+
         # create RUL values according to the piece-wise target function
         test = self._get_rul(test, test_final_rul)
-        test['RUL'].clip(upper=max_rul, inplace=True)
+        
+        # test['RUL'].clip(upper=max_rul, inplace=True)
+        # FutureWarning: A value is trying to be set on a copy of a DataFrame or Series through chained assignment using an inplace method.
+        test['RUL'] = test['RUL'].clip(upper=max_rul)
         test = test.drop(drop_sensors, axis=1)
 
         train = self._exponential_smoothing(train, self.sensors, 0, self.alpha)
